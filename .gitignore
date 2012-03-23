@@ -1,0 +1,6 @@
+*.class
+.project
+.pydevproject
+.settings/
+*.xml
+
