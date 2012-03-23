@@ -58,7 +58,8 @@ with zxJDBC.connect(jdbc_url, username, password, driver) as conn:
         with conn.cursor() as cur:
             
             # these need to be cleared between runs:
-            if 1==0:
+            # TODO: write a test 
+            if 1==1:
                 sql = "DELETE from cs where 1=1"
                 cur.execute(sql)
 
