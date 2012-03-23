@@ -3,8 +3,6 @@
 """
 Test the jar integration
 
-export CLASSPATH=./lib/commons-lang-2.5.jar:./lib/org.collectionspace.services.collectionobject.jaxb-2.0-SNAPSHOT.jar:./lib/postgresql-9.1-901.jdbc4.jar:./lib/jaxb2-basics-runtime-0.6.2.jar:./lib/org.collectionspace.services.person.jaxb-2.0-SNAPSHOT.jar
-
 """
 from __future__ import with_statement
 
