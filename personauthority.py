@@ -147,7 +147,8 @@ def refnameForPerson(agent_data,cms_data,doc,cur,usename):
             # new person, add to dom and cs table
             addPersonObjectToDom(person,doc)
             # put it in the cs table for the next time we see this person:
-            sql = "INSERT into cs (other_table, other_id, csid, refname) values (?,?,?,?)"
-            cur.execute(sql,('agent',str(agent_data['id']),csid,refname))
+            sql = "INSERT into cs (other_table, other_id, csid, refname, hostname) values (?,?,?,?,?)"
+            global HOSTNAME
+            cur.execute(sql,('agent',str(agent_data['id']),csid,refname,HOSTNAME))
         
         return refname

@@ -44,8 +44,10 @@ from org.collectionspace.services.collectionobject import StructuredDateGroup
 
 #### Python imports
 import urllib2
+import platform
 
 #################### GLOBALS
+HOSTNAME = platform.node()
 CSPACE_URL = "http://localhost:8180/"
 password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
 password_mgr.add_password(None, CSPACE_URL, 'admin@walkerart.org', 'Administrator')

@@ -28,7 +28,6 @@ from org.collectionspace.services.collectionobject import CollectionobjectsCommo
 from utils import *
 from collectionobject import *
 from personauthority import *
-
 import sys 
 reload (sys) 
 sys.setdefaultencoding ('utf-8') # lets us pipe the output straight to a file and not pike on utf/ascii conversion
@@ -51,16 +50,23 @@ username = "nschroeder"
 password = ""
 driver = "org.postgresql.Driver"
 
+global HOSTNAME
+
 with zxJDBC.connect(jdbc_url, username, password, driver) as conn:
     with conn:
         with conn.cursor() as cur:
             
-            # these need to be cleared between runs:
-            # TODO: write a test 
-            if 1==1:
-                sql = "DELETE from cs where 1=1"
-                cur.execute(sql)
-
+            # these need to be cleared between runs if the CS database changed:
+            personauthorityinfo = getPersonauthorityInfo()
+            sql = "SELECT csid from cs where hostname=? and other_table=?"
+            cur.execute(sql,(HOSTNAME,"personauthoritycsid"))
+            row = cur.fetchone()
+            csidmiss = True
+            if not row or row[0] != personauthorityinfo['csid']:
+                sql = "DELETE from cs where hostname=?"
+                cur.execute(sql,(HOSTNAME,))
+                sql = "INSERT into cs (other_table, other_id, csid, hostname) values (?,?,?,?)"
+                cur.execute(sql,("personauthoritycsid",'',personauthorityinfo['csid'],HOSTNAME))
             sql = "select cms_id, \
                   amico_id, creator_text_forward, \
                   creator_text_inverted, creation_date_text, \
@@ -79,7 +85,7 @@ with zxJDBC.connect(jdbc_url, username, password, driver) as conn:
                 WHERE title.object_id = object.id \
                   AND title.title_type = 'P' \
                 ORDER BY object.id ASC \
-                LIMIT 200 \
+                LIMIT 10 \
                 ";
                 
             cur.execute(sql);
@@ -109,8 +115,8 @@ with zxJDBC.connect(jdbc_url, username, password, driver) as conn:
                     csid = csidrow[1]
                 else:
                     # put it in the cs table for the next time we see this person:
-                    sql = "INSERT into cs (other_table, other_id, csid, refname) values (?,?,?,?)"
-                    cur.execute(sql,('object',str(cms_id),csid,''))
+                    sql = "INSERT into cs (other_table, other_id, csid, refname, hostname) values (?,?,?,?,?)"
+                    cur.execute(sql,('object',str(cms_id),csid,'',HOSTNAME))
                 collectionobject.setCsid(csid)
                 
                 # put it in the xml we're building
