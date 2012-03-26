@@ -51,6 +51,8 @@ password = ""
 driver = "org.postgresql.Driver"
 
 global HOSTNAME
+if len(sys.argv) > 1 and sys.argv[1].index('-'):
+    limit,offset = sys.argv[1].split('-')
 
 with zxJDBC.connect(jdbc_url, username, password, driver) as conn:
     with conn:
@@ -85,9 +87,10 @@ with zxJDBC.connect(jdbc_url, username, password, driver) as conn:
                 WHERE title.object_id = object.id \
                   AND title.title_type = 'P' \
                 ORDER BY object.id ASC \
-                LIMIT 10 \
+                LIMIT %s \
+                OFFSET %s \
                 ";
-                
+            sql = sql % (limit, offset)
             cur.execute(sql);
             
             rows = cur.fetchall()

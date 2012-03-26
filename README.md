@@ -27,5 +27,5 @@ This is not polished code (yet). It's not commented well (yet). It's not feature
 9. start cspace
 
 ## Usage
-1. `./import.py > cs_import.xml`
+1. `./import.py {limit}-{offset} > cs_import.xml`
 2. `curl http://localhost:8180/cspace-services/imports?type=xml -i -u admin@walkerart.org:Administrator -F "file=@cs_import.xml;type=application/xml"`
