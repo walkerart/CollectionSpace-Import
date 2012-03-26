@@ -14,6 +14,14 @@ The code in addPersonObjectToDom and renameNamespaceRecursive will show you the 
 __Note__
 
 This is not polished code (yet). It's not commented well (yet). It's not feature-complete (probably ever).
+## Setup
+1. install jython
+2. load CLASSPATH from above
+3. cd into services project
+4. mvn clean -DskipTests
+5. cp ./services/JaxRsServiceProvider/target/cspace-services.war
+/usr/local/share/apache-tomcat-6.0.33/webapps/
+6. start cspace
 
 ## Usage
 1. `./import.py > cs_import.xml`
