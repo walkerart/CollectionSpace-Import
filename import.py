@@ -87,6 +87,7 @@ with zxJDBC.connect(jdbc_url, username, password, driver) as conn:
             rows = cur.fetchall()
             description = cur.description
             for row in rows:
+                sys.stderr.write('.')
                 data = namedColumns(row,description)
                 #print data
                 cms_id = data['cms_id']
