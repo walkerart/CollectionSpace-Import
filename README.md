@@ -21,7 +21,7 @@ This is not polished code (yet). It's not commented well (yet). It's not feature
 4. source ../virtenv/bin/activate (run in every new shell)
 5. load CLASSPATH from above
 6. cd into services project
-7. mvn clean -DskipTests
+7. mvn install -DskipTests
 8. cp ./services/JaxRsServiceProvider/target/cspace-services.war
 /usr/local/share/apache-tomcat-6.0.33/webapps/
 9. start cspace

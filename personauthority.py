@@ -19,11 +19,14 @@ from org.w3c.dom import Node
 
 from org.collectionspace.services.person import PersonsCommon
 from org.collectionspace.services.person import NationalityList
+from org.collectionspace.services.person.local.walkerart import PersonsWalkerart
 
 ### python imports
 from utils import *
 import urllib2
 from xml.dom import minidom
+import sys
+
 
 personauthorityinfo = {}
 def getPersonauthorityInfo():
@@ -35,14 +38,17 @@ def getPersonauthorityInfo():
     url = CSPACE_URL+"cspace-services/personauthorities/"
     try:
         dom = minidom.parse(urllib2.urlopen(url))
-        # we're just getting the first one. Because I don't understand the difference.
-        csid = dom.getElementsByTagName('csid')[0].firstChild.data
-        short_identifier = dom.getElementsByTagName('shortIdentifier')[0].firstChild.data
-        personauthorityinfo = {'csid':csid,'short_identifier':short_identifier}
-        return personauthorityinfo
+        
+        # bit of fiddling to find the Default Person Authority
+        for dname in  dom.getElementsByTagName('displayName'):
+            if dname.firstChild.data == 'Default Person Authority':
+                csid = dname.parentNode.getElementsByTagName('csid')[0].firstChild.data
+                short_identifier = dom.getElementsByTagName('shortIdentifier')[0].firstChild.data
+                personauthorityinfo = {'csid':csid,'short_identifier':short_identifier}
+                return personauthorityinfo
     except Exception, e:
-        print "is the cspace server running??"
-        print e
+        sys.stderr.writeln(e)
+    sys.stderr.writeln("is the cspace server running??")
 
 def addPersonObjectToDom(person,doc):
     try:
@@ -71,7 +77,7 @@ def addPersonObjectToDom(person,doc):
         renameNamespaceRecursive(doc,schema_element,"http://collectionspace.org/services/person","persons_common")
 
     except Exception, e:
-        print e
+        sys.stderr.writeln(e)
 
 
 def refnameForPerson(agent_data,cms_data,doc,cur,usename):
@@ -130,8 +136,6 @@ def refnameForPerson(agent_data,cms_data,doc,cur,usename):
             note = "CS Import Script: creator inferred from original string: '%s'" %(cms_data['creator_text_forward'])
             print note
             person.setNameNote(note)
-        
-        person.setCsid(csid)
         personauthorityinfo = getPersonauthorityInfo()
         personauthorityname = personauthorityinfo['short_identifier']
         shortid = person.getDisplayName().replace(' ','-')+'-'+csid
@@ -143,9 +147,30 @@ def refnameForPerson(agent_data,cms_data,doc,cur,usename):
         person.setInAuthority(personauthorityinfo['csid'])
         person.setTermStatus('accepted')
         
+        person_walker = PersonsWalkerart()
+        person_walker.setEmployer("test employer!")
+
         if csidmiss:
             # new person, add to dom and cs table
-            addPersonObjectToDom(person,doc)
+            # first the schema extensions
+            extensions = []
+            extensions.append(addObjectToDom(**{'object':person_walker,
+                  'doc':doc,
+                  'type':'Person',
+                  'service':'Persons',
+                  'ns_name':'persons_walkerart',
+                  'ns_uri':'http://collectionspace.org/services/person/local/walkerart',
+                  'return_schema':True}))
+            
+            # then the main person object, with extensions in the same import wrapper
+            addObjectToDom(**{'object':person,
+                  'doc':doc,
+                  'type':'Person',
+                  'service':'Persons',
+                  'ns_name':'persons_common',
+                  'ns_uri':'http://collectionspace.org/services/person',
+                  'csid':csid,
+                  'extensions':extensions})
             # put it in the cs table for the next time we see this person:
             sql = "INSERT into cs (other_table, other_id, csid, refname, hostname) values (?,?,?,?,?)"
             global HOSTNAME

@@ -61,7 +61,7 @@ def addCollectionObjectToDom(collectionobject,doc):
         renameNamespaceRecursive(doc,schema_element,"http://collectionspace.org/services/collectionobject","collectionobjects_common")
 
     except Exception, e:
-        print e
+        sys.stderr.writeln(e)
         
 def addDimensionsToObject(collectionobject,cms_data,cur):
     sql = "SELECT m.measurement_type, m.unit, m.value \

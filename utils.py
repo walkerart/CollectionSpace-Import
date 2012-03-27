@@ -1,7 +1,7 @@
 #!/usr/bin/env jython
 # encoding: utf-8
 """
-Test the jar integration
+Common functionality for import scripts
 """
 
 #### Java imports
@@ -66,6 +66,50 @@ def renameNamespaceRecursive(doc, node, namespace, prefix):
     childnodelist = node.getChildNodes()
     for i in range(childnodelist.getLength()):
         renameNamespaceRecursive(doc, childnodelist.item(i), namespace, prefix)
+
+def addObjectToDom(*args, **kwargs):
+    # required args
+    object = kwargs['object']
+    doc = kwargs['doc']
+    service = kwargs['service']
+    type = kwargs['type']
+    ns_name = kwargs['ns_name']
+    ns_uri = kwargs['ns_uri']
+    try:
+        #import pdb; pdb.set_trace()
+        context = JAXBContext.newInstance(object.getClass())
+        marshaller = context.createMarshaller()
+        
+        import_element = doc.createElement("import")
+        if 'return_schema' not in kwargs:
+            import_element.setAttribute("seq", next_seq())
+            if 'csid' in kwargs:
+                import_element.setAttribute("CSID", kwargs['csid'])
+            import_element.setAttribute("service", service)
+            import_element.setAttribute("type", type)
+            doc.getDocumentElement().appendChild(import_element)
+            
+        marshaller.marshal(object, import_element)
+        schema_element = import_element.getFirstChild()
+        schema_element.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:"+ns_name, ns_uri);
+        doc.renameNode(schema_element, "", "schema") # rename root element to "schema", also remove default xmlns
+        #cleanup
+        schema_element.removeAttribute("xmlns:ns2")
+        schema_element.removeAttribute("xmlns")
+        schema_element.setAttribute("name",ns_name)
+        
+#        # add the namespace and prefix to everything
+        renameNamespaceRecursive(doc,schema_element,ns_uri,ns_name)
+        
+        if 'extensions' in kwargs:
+            for schema in kwargs['extensions']:
+                import_element.appendChild(schema)
+        
+        if 'return_schema' in kwargs:
+            return schema_element
+
+    except Exception, e:
+        print e
 
 def writeDom(doc):
     try:

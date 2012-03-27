@@ -1,7 +1,7 @@
 #!/usr/bin/env jython
 # encoding: utf-8
 """
-Test the jar integration
+First draft of import script to dump Walker objects into big honking xml import files.
 
 """
 from __future__ import with_statement
@@ -53,6 +53,9 @@ driver = "org.postgresql.Driver"
 global HOSTNAME
 if len(sys.argv) > 1 and sys.argv[1].index('-'):
     limit,offset = sys.argv[1].split('-')
+reset_cache = False
+if 'reset_cache' in sys.argv:
+    reset_cache = True
 
 with zxJDBC.connect(jdbc_url, username, password, driver) as conn:
     with conn:
@@ -64,7 +67,7 @@ with zxJDBC.connect(jdbc_url, username, password, driver) as conn:
             cur.execute(sql,(HOSTNAME,"personauthoritycsid"))
             row = cur.fetchone()
             csidmiss = True
-            if not row or row[0] != personauthorityinfo['csid']:
+            if reset_cache or (not row or row[0] != personauthorityinfo['csid']):
                 sql = "DELETE from cs where hostname=?"
                 cur.execute(sql,(HOSTNAME,))
                 sql = "INSERT into cs (other_table, other_id, csid, hostname) values (?,?,?,?)"
@@ -118,13 +121,22 @@ with zxJDBC.connect(jdbc_url, username, password, driver) as conn:
                 if csidrow:
                     csid = csidrow[1]
                 else:
-                    # put it in the cs table for the next time we see this person:
+                    # put it in the cs table for the next time we see this object:
                     sql = "INSERT into cs (other_table, other_id, csid, refname, hostname) values (?,?,?,?,?)"
                     cur.execute(sql,('object',str(cms_id),csid,'',HOSTNAME))
-                collectionobject.setCsid(csid)
                 
-                # put it in the xml we're building
-                addCollectionObjectToDom(collectionobject,doc)
+                # collectionobject extensions
+                extensions = []
+                
+                # then the main object, with extensions in the same import wrapper
+                addObjectToDom(**{'object':collectionobject,
+                      'doc':doc,
+                      'type':'CollectionObject',
+                      'service':'CollectionObjects',
+                      'ns_name':'collectionobjects_common',
+                      'ns_uri':'http://collectionspace.org/services/collectionobject',
+                      'csid':csid,
+                      'extensions':extensions})
             
             
             writeDom(doc)
