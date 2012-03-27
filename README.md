@@ -29,7 +29,8 @@ This is not polished code (yet). It's not commented well (yet). It's not feature
 
 ## Usage
 1. `./import.py {limit}-{offset} [reset-cache] > cs_import.xml`
-2. `curl http://localhost:8180/cspace-services/imports?type=xml -i -u admin@walkerart.org:Administrator -F "file=@cs_import.xml;type=application/xml"`
+2. `curl http://localhost:8180/cspace-services/imports?type=xml -i -u admin@walkerart.org:Administrator \
+-F "file=@cs_import.xml;type=application/xml"`
 
 ## Implementation notes
 This code uses a database table to cache CSIDs so multiple runs should work and not generate duplicate CSIDs for the same object. This also allows us to put the authorities in the same XML import file, as long as they precede their first reference. (For instance, we cache the person refname and re-use for any other objects sharing the person.)
@@ -37,7 +38,7 @@ This code uses a database table to cache CSIDs so multiple runs should work and 
 It's also using hostname to allow multiple import scripts to run and not conflict. Finally, the import routine can either manually clear the cache by passing in an argument, or it will detect when the default authority CSIDs have changed and blow the cache away (e.g. when resetting the CS db between botched tests).
 
 The table is generated in Postgres like this:
-```sql
+```
 DROP TABLE if exists cs;
 CREATE TABLE cs (
     hostname varchar(255) NOT NULL,
