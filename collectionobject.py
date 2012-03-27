@@ -33,35 +33,6 @@ from utils import *
 from personauthority import refnameForPerson
 
 ######################################################### XML population
-
-def addCollectionObjectToDom(collectionobject,doc):
-    try:
-        context = JAXBContext.newInstance(collectionobject.getClass())
-        marshaller = context.createMarshaller()
-        root = doc.getDocumentElement()
-            
-        import_element = doc.createElement("import")
-        import_element.setAttribute("seq", next_seq())
-        import_element.setAttribute("CSID", collectionobject.getCsid())
-        collectionobject.setCsid(None)
-        import_element.setAttribute("service", "CollectionObjects")
-        import_element.setAttribute("type", "CollectionObject")
-        root.appendChild(import_element)
-        
-        marshaller.marshal(collectionobject, import_element)
-        schema_element = import_element.getFirstChild()
-        schema_element.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:collectionobjects_common", "http://collectionspace.org/services/collectionobject");
-        doc.renameNode(schema_element, "", "schema") # rename root element to "schema", also remove default xmlns
-        #cleanup
-        schema_element.removeAttribute("xmlns:ns2")
-        schema_element.removeAttribute("xmlns")
-        schema_element.setAttribute("name","collectionobjects_common")
-        
-#        # add the namespace and prefix to everything
-        renameNamespaceRecursive(doc,schema_element,"http://collectionspace.org/services/collectionobject","collectionobjects_common")
-
-    except Exception, e:
-        sys.stderr.writeln(e)
         
 def addDimensionsToObject(collectionobject,cms_data,cur):
     sql = "SELECT m.measurement_type, m.unit, m.value \
