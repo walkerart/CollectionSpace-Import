@@ -43,7 +43,7 @@ def getPersonauthorityInfo():
         for dname in  dom.getElementsByTagName('displayName'):
             if dname.firstChild.data == 'Default Person Authority':
                 csid = dname.parentNode.getElementsByTagName('csid')[0].firstChild.data
-                short_identifier = dom.getElementsByTagName('shortIdentifier')[0].firstChild.data
+                short_identifier = dname.parentNode.getElementsByTagName('shortIdentifier')[0].firstChild.data
                 personauthorityinfo = {'csid':csid,'short_identifier':short_identifier}
                 return personauthorityinfo
     except Exception, e:
