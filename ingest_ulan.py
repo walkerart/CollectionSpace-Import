@@ -52,9 +52,41 @@ except Exception as e:
 
 cur.execute("delete from ulan_names where 1=1");
 cur.execute("delete from ulan_person where 1=1");
+cur.execute("delete from ulan_role where 1=1");
+cur.execute("delete from ulan_nationality where 1=1");
 
 VPNS = '{http://e-culture.multimedian.nl/ns/getty/vp#}'
 ULANNS = '{http://e-culture.multimedian.nl/ns/getty/ulan#}'
+RDFNS = '{http://www.w3.org/1999/02/22-rdf-syntax-ns#}'
+RDFSNS = '{http://www.w3.org/2000/01/rdf-schema#}'
+
+
+seen_ids = []
+with open(ulan_base+"ULAN-Roles.rdf") as xml_file:
+    root = etree.parse(xml_file)
+    for item in root.iter(ULANNS+'Role'):
+        ulan_id = get_attribute_or_element(item,RDFNS+'about').replace('http://e-culture.multimedian.nl/ns/getty/ulan#','')
+        if ulan_id not in seen_ids:
+            seen_ids.append(ulan_id)
+            label = get_attribute_or_element(item,RDFSNS+'label')
+            print ulan_id
+            print label
+            cur.execute("insert into ulan_role (ulan_id, ulan_role) values (%s, %s)",(ulan_id, label));
+conn.commit()
+
+seen_ids = []
+with open(ulan_base+"ULAN-Nationalities.rdf") as xml_file:
+    root = etree.parse(xml_file)
+    for item in root.iter(ULANNS+'Nationality'):
+        ulan_id = get_attribute_or_element(item,RDFNS+'about').replace('http://e-culture.multimedian.nl/ns/getty/ulan#','')
+        if ulan_id not in seen_ids:
+            seen_ids.append(ulan_id)
+            label = get_attribute_or_element(item,RDFSNS+'label')
+            print ulan_id
+            print label
+            cur.execute("insert into ulan_nationality (ulan_id, nationality) values (%s, %s)",(ulan_id, label));
+conn.commit()
+
 dmeta = fuzzy.DMetaphone()
 seen_ids = []
 for rdf_file in ulan_rdfs:
@@ -97,4 +129,3 @@ for rdf_file in ulan_rdfs:
                     print "{} {} {}".format(name,dmname[0], dmname[1])
                     cur.execute("insert into ulan_names (ulan_id, ulan_name, dmname1, dmname2) values (%s, %s, %s, %s)",(ulan_id,name,dmname[0],dmname[1]));
     conn.commit()
-     
