@@ -24,11 +24,11 @@ DEATHPLACE_COL = 62
 NATIONALITY_COL = 67
 DEBUG_ARTISTS=False
 DEBUG_ULAN=True
-PROMPT_ULAN=False
+PROMPT_ULAN=True
 
 tabfile = sys.argv[1]
 fin = open( tabfile, "rU") # codecs open doesn't respect \r newlines
-fout = codecs.open( "/tmp/out.tab", "wt", "utf-8" )
+fout = codecs.open( "/tmp/out1.tab", "wt", "utf-8" )
 
 # ok name regex
 singlename_1 = re.compile(r"^[^\s]+,?(\s+)[^\s]+$")
@@ -86,10 +86,12 @@ def explode_artists(artist, artists = None):
 firstlast_re = re.compile(r"([^,]+),\s+(.+)")
 ulan_hit = 0
 ulan_miss = 0
+done_header = False
 
 def map_to_ulan(data,object_data):
     global ulan_hit
     global ulan_miss
+    global done_header
     name = data[ARTIST_COL]
     # ULAN ID, preferred label, nationality, role, birth date & death date
     ret = ['','','','','','']
@@ -98,10 +100,14 @@ def map_to_ulan(data,object_data):
         return ret # empty row padding another column, skip
     name = name.replace(',  ',', ') # easy fix: extra space
     
+    wac_id = 0
     try:
         wac_id = int(data[ID_COL])
     except:
-        return ret # header line or something
+        if not done_header:
+            done_header = True
+            return ['ULAN ID', 'preferred label', 'nationality', 'role', 'birth date', 'death date']
+        #return ret # header line or something
     #cur.execute("select pickled_data from ulan_cache where wac_id=%s and artist_name=%s",(wac_id,name))
     cur.execute("select pickled_data from ulan_cache where artist_name=%s",(name,))
     row = cur.fetchone()
@@ -196,12 +202,13 @@ def map_to_ulan(data,object_data):
         ulan_hit += 1
         # ULAN ID, preferred label, nationality, role, birth date & death date
         ret = [str(ulan_person['ulan_id']),ulan_person['labelpreferred'],ulan_person['nationality'],ulan_person['ulan_role'],ulan_person['birthdate'],ulan_person['deathdate'] if ulan_person['deathdate'] else '']
-        
     pickled_data = pickle.dumps(ret)
     cur.execute("insert into ulan_cache (wac_id,artist_name,pickled_data) values (%s,%s,%s)",(wac_id,name,pickled_data))
     conn.commit()
     return ret
-        
+
+if 'reset_cache' in sys.argv:
+    cur.execute("delete from ulan_cache where 1=1");
 
 if DEBUG_ARTISTS:
     print explode_artists('Clegg & Guttmann (Michael Clegg and Martin Guttmann) in collaboration with Franz West')
@@ -226,7 +233,11 @@ for line in fin:
         out = []
         for j in range(len(cols)):
             out.append((cols[j][i] if len(cols[j]) > i else '')+('\n' if (j == (len(cols)-1) and i>0) else ''))
-        out.extend(map_to_ulan(out,orig_cols))
+        ulan = map_to_ulan(out,orig_cols)
+        out[-1:] = [out[-1:][0].strip()]
+        out.append(original_artist_string if i == 0 else '')
+        out.extend(ulan)
+        out[-1:] = [out[-1:][0]+'\n']
         fout.write('\t'.join(out))
 
 print "Hit rate: {}/{} = {}".format(ulan_hit,(ulan_hit+ulan_miss),(ulan_hit/(ulan_hit+ulan_miss)))
