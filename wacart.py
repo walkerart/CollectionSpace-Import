@@ -11,8 +11,11 @@ sys.setdefaultencoding ('utf-8') # lets us pipe the output straight to a file an
 import psycopg2
 import psycopg2.extras
 import psycopg2.extensions
+import pickle
 
-ID_COL = 36
+ACC_COL = 35
+ID_COL = 38
+TITLE_COL = 41
 ARTIST_COL = 56
 BIRTHDATE_COL = 59
 BIRTHPLACE_COL = 60
@@ -21,6 +24,7 @@ DEATHPLACE_COL = 62
 NATIONALITY_COL = 67
 DEBUG_ARTISTS=False
 DEBUG_ULAN=True
+PROMPT_ULAN=False
 
 tabfile = sys.argv[1]
 fin = open( tabfile, "rU") # codecs open doesn't respect \r newlines
@@ -80,7 +84,6 @@ def explode_artists(artist, artists = None):
     return artists
 
 firstlast_re = re.compile(r"([^,]+),\s+(.+)")
-mapped = {}
 ulan_hit = 0
 ulan_miss = 0
 
@@ -88,11 +91,24 @@ def map_to_ulan(data,object_data):
     global ulan_hit
     global ulan_miss
     name = data[ARTIST_COL]
-    if not name:
-        return # empty row padding another column, skip
+    # ULAN ID, preferred label, nationality, role, birth date & death date
+    ret = ['','','','','','']
+    
+    if not name or 'anonymous' in name.lower() or 'uknown' in name.lower():
+        return ret # empty row padding another column, skip
     name = name.replace(',  ',', ') # easy fix: extra space
-    if name in mapped:
-        return mapped[name]
+    
+    try:
+        wac_id = int(data[ID_COL])
+    except:
+        return ret # header line or something
+    #cur.execute("select pickled_data from ulan_cache where wac_id=%s and artist_name=%s",(wac_id,name))
+    cur.execute("select pickled_data from ulan_cache where artist_name=%s",(name,))
+    row = cur.fetchone()
+    if row:
+        return pickle.loads(row['pickled_data'])
+    
+    
 #    m = firstlast_re.match(name)
 #    if m:
 #        name = "{} {}".format(m.group(2),m.group(1))
@@ -130,7 +146,7 @@ def map_to_ulan(data,object_data):
             else:
                 # awesome. I don't think we can do any better than an exact preferred name match
                 best_data = data
-                cur.execute("select * from ulan_person where ulan_id=%s",(best_data['ulan_id'],))
+                cur.execute("select p.*, r.ulan_role, n.nationality from ulan_person p, ulan_role r, ulan_nationality n where p.ulan_id=%s and r.ulan_id=p.rolePreferred and n.ulan_id=p.nationalityPreferred",(best_data['ulan_id'],))
                 ulan_person = cur.fetchone()
                 if ulan_person['birthdate'] == object_data[BIRTHDATE_COL][0]:
                     # uber confident
@@ -145,31 +161,46 @@ def map_to_ulan(data,object_data):
                 smallest_distance = distance
                 best_guess = data['ulan_name']
                 best_data = data
+    is_hit = False
     if best_data:
-        ulan_hit += 1
         if not ulan_person:
-            cur.execute("select * from ulan_person where ulan_id=%s",(best_data['ulan_id'],))
+            cur.execute("select p.*, r.ulan_role, n.nationality from ulan_person p, ulan_role r, ulan_nationality n where p.ulan_id=%s and r.ulan_id=p.rolePreferred and n.ulan_id=p.nationalityPreferred",(best_data['ulan_id'],))
             ulan_person = cur.fetchone()
         if best_data['score'] < 3:
             # it's a guess, let's see if it's any good
             if smallest_distance < 3 and object_data[BIRTHDATE_COL][0] == ulan_person['birthdate']: # nothing over 3 worth considering, but birthdates match
             #if smallest_distance < 3: # nothing over 3 worth considering, and only if some metadata matches
-                print "For name '{}', we found something close: {}".format(name,best_guess)
-                print "The birthdates match ({}), so we're using '{}'".format(ulan_person['birthdate'], ulan_person['labelpreferred'])
-#                print "{} {} '{}': '{}'".format(best_data['ulan_id'],smallest_distance,name,best_guess)
-#                print "{} {} '{}': '{}'".format(best_data['ulan_id'],smallest_distance,name,ulan_person['labelpreferred'])
-#                print "{}\t{}\t{}\t{}\t{}".format(object_data[BIRTHDATE_COL][0],object_data[DEATHDATE_COL][0],object_data[BIRTHPLACE_COL][0],object_data[DEATHPLACE_COL][0],object_data[NATIONALITY_COL][0])
-#                print "{}\t{}\t{}\t{}\t{}".format(ulan_person['birthdate'],ulan_person['deathdate'],ulan_person['birthplace'],ulan_person['deathplace'],ulan_person['nationalitypreferred'])
+                is_hit = True
+                print "For name '{}', we found this name: {}".format(name,best_guess)
+                print "The birthdates match ({}), so we're confidently using '{}'".format(ulan_person['birthdate'], ulan_person['labelpreferred'])
+                print "Born: {}\nNationality: {}\nRole: {}".format(ulan_person['birthdate'],ulan_person['nationality'],ulan_person['ulan_role'])
                 print "=========================================="
-        if smallest_distance < 3 and not object_data[BIRTHDATE_COL][0]: # nothing over 3 worth considering, and only if some metadata matches
-                print "++ For name '{}', we found something close: {}".format(name,best_guess)
-                print "++No birthdate to compare, but we think it's '{}'".format(ulan_person['labelpreferred'])
+        else:
+            is_hit = True # 3 = exact match
+        if smallest_distance < 2 and not object_data[BIRTHDATE_COL][0]: # nothing over 3 worth considering, and only if some metadata matches
+                #print "++ For name '{}', we found this name: {}".format(name,best_guess)
+                print "++ For object {}, '{}'\n++ WAC name '{}'".format(object_data[ACC_COL][0].strip(),object_data[TITLE_COL][0].strip(),name)
+                print "++ No WAC birthdate to compare, but we think it's '{}'".format(ulan_person['labelpreferred'])
+                print "++ Born: {}\n++ Nationality: {}\n++ Role: {}".format(ulan_person['birthdate'],ulan_person['nationality'],ulan_person['ulan_role'])
                 print "=========================================="
-    else:
+                if PROMPT_ULAN:
+                    val = raw_input("Keep it? (y/n) ")
+                if not PROMPT_ULAN or 'y' in val.lower():
+                    print "keeping"
+                    is_hit = True
+    if not is_hit:
         #print "miss: {}".format(name)
         ulan_miss += 1
+    else:
+        #print "hit: {}".format(name)
+        ulan_hit += 1
+        # ULAN ID, preferred label, nationality, role, birth date & death date
+        ret = [str(ulan_person['ulan_id']),ulan_person['labelpreferred'],ulan_person['nationality'],ulan_person['ulan_role'],ulan_person['birthdate'],ulan_person['deathdate'] if ulan_person['deathdate'] else '']
         
-    mapped[name] = "whatever we return"
+    pickled_data = pickle.dumps(ret)
+    cur.execute("insert into ulan_cache (wac_id,artist_name,pickled_data) values (%s,%s,%s)",(wac_id,name,pickled_data))
+    conn.commit()
+    return ret
         
 
 if DEBUG_ARTISTS:
@@ -195,7 +226,7 @@ for line in fin:
         out = []
         for j in range(len(cols)):
             out.append((cols[j][i] if len(cols[j]) > i else '')+('\n' if (j == (len(cols)-1) and i>0) else ''))
-        map_to_ulan(out,orig_cols)
+        out.extend(map_to_ulan(out,orig_cols))
         fout.write('\t'.join(out))
 
-print "Hit rate: {}/{} = {}".format(ulan_hit,(ulan_hist+ulan_miss),Decimal((ulan_hit/(ulan_hit+ulan_miss))))
+print "Hit rate: {}/{} = {}".format(ulan_hit,(ulan_hit+ulan_miss),(ulan_hit/(ulan_hit+ulan_miss)))
