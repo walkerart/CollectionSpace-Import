@@ -25,7 +25,7 @@ NATIONALITY_COL = 67
 LASTNAME_COL=69
 DEBUG_ARTISTS=False
 DEBUG_ULAN=True
-PROMPT_ULAN=True
+PROMPT_ULAN=False
 
 tabfile = sys.argv[1]
 fin = open( tabfile, "rU") # codecs open doesn't respect \r newlines
@@ -259,7 +259,9 @@ for line in fin:
         
         if not done_header:
             done_header = True
-            out.extend(['ULAN ID', 'preferred label', 'nationality', 'role', 'birth date', 'death date', 'First Name'])
+            add_columns = ['WAC display name', 'ULAN ID', 'preferred label', 'nationality', 'role', 'birth date', 'death date', 'First Name']
+            out = out[:-(len(add_columns)-1)]
+            out.extend(add_columns)
         
         out[-1:] = [out[-1:][0]+'\n']
         fout.write('\t'.join(out))
