@@ -22,7 +22,7 @@ BIRTHPLACE_COL = 60
 DEATHDATE_COL = 61
 DEATHPLACE_COL = 62
 NATIONALITY_COL = 67
-LASTNAME_COL=70
+LASTNAME_COL=69
 DEBUG_ARTISTS=False
 DEBUG_ULAN=True
 PROMPT_ULAN=True
@@ -40,7 +40,7 @@ splitname_1 = re.compile(r"^([^(]+)(;\s|\sand\s)(.+)$")
 splitname_2 = re.compile(r"^([^\s]+(\s+[^\s]+)+)(,\s)([^\s]+(\s+[^\s]+)+)$")
 
 # first/last regex
-lastfirst = re.compile(r"^([^\s]+),\s+(.+)$")
+lastfirst = re.compile(r"^([^,]+),\s+([^,]+)$")
 firstlast = re.compile(r"^([^\s]+)\s+([^,]+)$")
 
 dmeta = fuzzy.DMetaphone()
@@ -106,13 +106,7 @@ def map_to_ulan(data,object_data):
     name = name.replace(',  ',', ') # easy fix: extra space
     
     wac_id = 0
-    try:
-        wac_id = int(data[ID_COL])
-    except:
-        if not done_header:
-            done_header = True
-            return ['ULAN ID', 'preferred label', 'nationality', 'role', 'birth date', 'death date', 'First Name']
-        #return ret # header line or something
+    #return ret # header line or something
     #cur.execute("select pickled_data from ulan_cache where wac_id=%s and artist_name=%s",(wac_id,name))
     cur.execute("select pickled_data from ulan_cache where artist_name=%s",(name,))
     row = cur.fetchone()
@@ -244,20 +238,29 @@ for line in fin:
         out.extend(ulan)
         
         # figure out first/last names
-        prefname = ulan[1] if ulan[1] else cols[ARTIST_COL][0]
-        m = lastfirst.match(prefname)
-        if m:
-            cols[LASTNAME_COL] = m.group(1)
-            out.append(m.group(2)) # firstname
-        m = firstlast.match(prefname)
-        if m:
-            cols[LASTNAME_COL] = m.group(2)
-            out.append(m.group(1)) # firstname
-            # re-arrange artist name to go last, first
-            cols[ARTIST_COL] = "{}, {}".format(m.group(2),m.group(1))
-            
-        print "{} : {} : {}".format(out[-1:][0],cols[LASTNAME_COL],prefname)
-            
+        prefname = ulan[1] if ulan[1] else out[ARTIST_COL]
+        if done_header and prefname:
+            found_first = False
+            m = lastfirst.match(prefname)
+            if m:
+                out[LASTNAME_COL] = m.group(1)
+                out.append(m.group(2)) # firstname
+                found_first = True
+            m = firstlast.match(prefname) if not m else None
+            if m:
+                out[LASTNAME_COL] = m.group(2)
+                out.append(m.group(1)) # firstname
+                found_first = True
+                # re-arrange artist name to go last, first
+                out[ARTIST_COL] = "{}, {}".format(m.group(2),m.group(1))
+            if not found_first:
+                out.append('') # no first name
+            #print u"{} : {} : {}".format(out[-1:][0],out[LASTNAME_COL],prefname)
+        
+        if not done_header:
+            done_header = True
+            out.extend(['ULAN ID', 'preferred label', 'nationality', 'role', 'birth date', 'death date', 'First Name'])
+        
         out[-1:] = [out[-1:][0]+'\n']
         fout.write('\t'.join(out))
 
