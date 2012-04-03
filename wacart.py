@@ -22,6 +22,7 @@ BIRTHPLACE_COL = 60
 DEATHDATE_COL = 61
 DEATHPLACE_COL = 62
 NATIONALITY_COL = 67
+LASTNAME_COL=70
 DEBUG_ARTISTS=False
 DEBUG_ULAN=True
 PROMPT_ULAN=True
@@ -37,6 +38,10 @@ singlename_3 = re.compile(r"^([^\s]+\s+[^\s]+),?(\s+)[^\s]+$")
 couple_shortcut_1 = re.compile(r"^([^\s]+),\s+([^\s]+)\sand\s([^\s]+)$")
 splitname_1 = re.compile(r"^([^(]+)(;\s|\sand\s)(.+)$")
 splitname_2 = re.compile(r"^([^\s]+(\s+[^\s]+)+)(,\s)([^\s]+(\s+[^\s]+)+)$")
+
+# first/last regex
+lastfirst = re.compile(r"^([^\s]+),\s+(.+)$")
+firstlast = re.compile(r"^([^\s]+)\s+([^,]+)$")
 
 dmeta = fuzzy.DMetaphone()
 
@@ -106,7 +111,7 @@ def map_to_ulan(data,object_data):
     except:
         if not done_header:
             done_header = True
-            return ['ULAN ID', 'preferred label', 'nationality', 'role', 'birth date', 'death date']
+            return ['ULAN ID', 'preferred label', 'nationality', 'role', 'birth date', 'death date', 'First Name']
         #return ret # header line or something
     #cur.execute("select pickled_data from ulan_cache where wac_id=%s and artist_name=%s",(wac_id,name))
     cur.execute("select pickled_data from ulan_cache where artist_name=%s",(name,))
@@ -237,6 +242,22 @@ for line in fin:
         out[-1:] = [out[-1:][0].strip()]
         out.append(original_artist_string if i == 0 else '')
         out.extend(ulan)
+        
+        # figure out first/last names
+        prefname = ulan[1] if ulan[1] else cols[ARTIST_COL][0]
+        m = lastfirst.match(prefname)
+        if m:
+            cols[LASTNAME_COL] = m.group(1)
+            out.append(m.group(2)) # firstname
+        m = firstlast.match(prefname)
+        if m:
+            cols[LASTNAME_COL] = m.group(2)
+            out.append(m.group(1)) # firstname
+            # re-arrange artist name to go last, first
+            cols[ARTIST_COL] = "{}, {}".format(m.group(2),m.group(1))
+            
+        print "{} : {} : {}".format(out[-1:][0],cols[LASTNAME_COL],prefname)
+            
         out[-1:] = [out[-1:][0]+'\n']
         fout.write('\t'.join(out))
 
