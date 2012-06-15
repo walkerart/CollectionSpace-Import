@@ -25,7 +25,7 @@ NATIONALITY_COL = 67
 LASTNAME_COL=69
 DEBUG_ARTISTS=False
 DEBUG_ULAN=True
-PROMPT_ULAN=False
+PROMPT_ULAN=True
 
 tabfile = sys.argv[1]
 fin = open( tabfile, "rU") # codecs open doesn't respect \r newlines
@@ -67,7 +67,7 @@ def explode_artists(artist, artists = None):
         artists.append(artist)
     m = couple_shortcut_1.match(artist)
     if m:
-        artist = "{}, {} and {} {}".format(m.group(1),m.group(2),m.group(3),m.group(2))
+        artist = "{}, {} and {} {}".format(m.group(1),m.group(2),m.group(3),m.group(1))
     m = splitname_1.match(artist)
     g1 = g2 = ''
     if m:
@@ -110,7 +110,10 @@ def map_to_ulan(data,object_data):
     #cur.execute("select pickled_data from ulan_cache where wac_id=%s and artist_name=%s",(wac_id,name))
     cur.execute("select pickled_data from ulan_cache where artist_name=%s",(name,))
     row = cur.fetchone()
-    if row:
+    skip = False
+    if row and row['pickled_data'] == 'skip':
+        skip = True # already skipped, skip again.
+    if row and row['pickled_data'] != 'skip':
         return pickle.loads(row['pickled_data'])
     
     
@@ -176,23 +179,29 @@ def map_to_ulan(data,object_data):
             if smallest_distance < 3 and object_data[BIRTHDATE_COL][0] == ulan_person['birthdate']: # nothing over 3 worth considering, but birthdates match
             #if smallest_distance < 3: # nothing over 3 worth considering, and only if some metadata matches
                 is_hit = True
-                print "For name '{}', we found this name: {}".format(name,best_guess)
-                print "The birthdates match ({}), so we're confidently using '{}'".format(ulan_person['birthdate'], ulan_person['labelpreferred'])
-                print "Born: {}\nNationality: {}\nRole: {}".format(ulan_person['birthdate'],ulan_person['nationality'],ulan_person['ulan_role'])
-                print "=========================================="
+                #print "For name '{}', we found this name: {}".format(name,best_guess)
+                #print "The birthdates match ({}), so we're confidently using '{}'".format(ulan_person['birthdate'], ulan_person['labelpreferred'])
+                #print "Born: {}\nNationality: {}\nRole: {}".format(ulan_person['birthdate'],ulan_person['nationality'],ulan_person['ulan_role'])
+                #print "=========================================="
         else:
             is_hit = True # 3 = exact match
-        if smallest_distance < 2 and not object_data[BIRTHDATE_COL][0]: # nothing over 3 worth considering, and only if some metadata matches
+        if not skip and smallest_distance < 2 and not object_data[BIRTHDATE_COL][0]: # nothing over 3 worth considering, and only if some metadata matches
                 #print "++ For name '{}', we found this name: {}".format(name,best_guess)
+                print "=========================================="
                 print "++ For object {}, '{}'\n++ WAC name '{}'".format(object_data[ACC_COL][0].strip(),object_data[TITLE_COL][0].strip(),name)
-                print "++ No WAC birthdate to compare, but we think it's '{}'".format(ulan_person['labelpreferred'])
+                print "++ ULAN match is '{}'".format(ulan_person['labelpreferred'])
+                print "++ ULAN id '{}'".format(ulan_person['ulan_id'])
                 print "++ Born: {}\n++ Nationality: {}\n++ Role: {}".format(ulan_person['birthdate'],ulan_person['nationality'],ulan_person['ulan_role'])
                 print "=========================================="
                 if PROMPT_ULAN:
-                    val = raw_input("Keep it? (y/n) ")
+                    val = raw_input("Is this the right person (y/n) or skip? (s) ")
                 if not PROMPT_ULAN or 'y' in val.lower():
-                    print "keeping"
+                    print "keeping {}".format(ulan_person['labelpreferred'])
                     is_hit = True
+                if PROMPT_ULAN and 's' in val.lower():
+                    print "skipping {}".format(ulan_person['labelpreferred'])
+                    skip = True
+                print ""
     if not is_hit:
         #print "miss: {}".format(name)
         ulan_miss += 1
@@ -202,6 +211,8 @@ def map_to_ulan(data,object_data):
         # ULAN ID, preferred label, nationality, role, birth date & death date
         ret = [str(ulan_person['ulan_id']),ulan_person['labelpreferred'],ulan_person['nationality'],ulan_person['ulan_role'],ulan_person['birthdate'],ulan_person['deathdate'] if ulan_person['deathdate'] else '']
     pickled_data = pickle.dumps(ret)
+    if skip:
+        pickled_data = 'skip'
     cur.execute("insert into ulan_cache (wac_id,artist_name,pickled_data) values (%s,%s,%s)",(wac_id,name,pickled_data))
     conn.commit()
     return ret
@@ -256,10 +267,12 @@ for line in fin:
             if not found_first:
                 out.append('') # no first name
             #print u"{} : {} : {}".format(out[-1:][0],out[LASTNAME_COL],prefname)
-        
+        elif done_header and not prefname:
+            out.append('') # keep column count the same
+            
         if not done_header:
             done_header = True
-            add_columns = ['WAC display name', 'ULAN ID', 'preferred label', 'nationality', 'role', 'birth date', 'death date', 'First Name']
+            add_columns = ['WAC display name', 'ULAN ID', 'preferred label', 'ulan_nationality', 'role', 'birth date', 'death date', 'First Name']
             out = out[:-(len(add_columns)-1)]
             out.extend(add_columns)
         
