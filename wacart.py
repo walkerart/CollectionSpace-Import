@@ -35,9 +35,10 @@ fout = codecs.open( "/tmp/out1.tab", "wt", "utf-8" )
 singlename_1 = re.compile(r"^[^\s]+,?(\s+)[^\s]+$")
 singlename_2 = re.compile(r"^[^\s]+,?(\s+)([^\s]+\s+[^\s]+)$")
 singlename_3 = re.compile(r"^([^\s]+\s+[^\s]+),?(\s+)[^\s]+$")
+singlename_4 = re.compile(r"^[^\s]+\s+([jJsS]r)\.,?(\s+)([^\s]+\s+[^\s]+)$")
 couple_shortcut_1 = re.compile(r"^([^\s]+),\s+([^\s]+)\sand\s([^\s]+)$")
 splitname_1 = re.compile(r"^([^(]+)(;\s|\sand\s)(.+)$")
-splitname_2 = re.compile(r"^([^\s]+(\s+[^\s]+)+)(,\s)([^\s]+(\s+[^\s]+)+)$")
+splitname_2 = re.compile(r"^([^\s]+(\s+[^\s]+)+)(?<![jJsS]r\.)(,\s)([^\s]+(\s+[^\s]+)+)$")
 
 # first/last regex
 lastfirst = re.compile(r"^([^,]+),\s+([^,]+)$")
@@ -61,7 +62,7 @@ def explode_artists(artist, artists = None):
         artists = []
     artist = artist.strip()
     artist = artist.strip(',')
-    if singlename_1.match(artist) or singlename_2.match(artist) or singlename_3.match(artist):
+    if singlename_1.match(artist) or singlename_2.match(artist) or singlename_3.match(artist) or singlename_4.match(artist):
         if DEBUG_ARTISTS:
             print "this is a singlename: {}".format(artist)
         artists.append(artist)
@@ -225,6 +226,8 @@ if DEBUG_ARTISTS:
     print explode_artists('Scheier, Edwin and Mary')
     print explode_artists('Charlip, Remy; Ray Johnson, Robert Rauschenberg, and Vera Williams')
     print explode_artists('Vieira da Silva, Maria Helena')
+    print explode_artists('Kennedy Jr., Amos Paul')
+    print explode_artists('Luchese Jr., Joseph P.')
     fin = []
     
 for line in fin:
