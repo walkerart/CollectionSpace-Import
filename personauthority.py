@@ -80,8 +80,8 @@ def addPersonObjectToDom(person,doc):
         sys.stderr.writeln(e)
 
 
-def refnameForPerson(agent_data,cms_data,doc,cur,usename):
-    other_id = usename if usename else agent_data['id']
+def refnameForPerson(agent_data,cms_data,doc,cur):
+    other_id = agent_data['firstname']+agent_data['lastname']+agent_data['wac_id']+agent_data['ulanid']
     # look for existing refname
     sql = "SELECT refname,csid from cs where other_table=? and other_id=?"
     cur.execute(sql,('agent',str(other_id)))
@@ -92,88 +92,80 @@ def refnameForPerson(agent_data,cms_data,doc,cur,usename):
         csid = row[1]
         csidmiss = False
     
-    if usename:
-        # fake person, just a name...
-        rows = [usename]
-    else:
-        # again. Fucking bullshit since we seem to only have one name for anyone.
-        sql =  "SELECT first_name, index_name, prefix, suffix, preferred_name \
-            FROM names WHERE agent_id = ?"
-        cur.execute(sql,(agent_data['id'],) );
-        rows = cur.fetchall()
-    
-    if not usename:
-        description = cur.description
     person = PersonsCommon()
-    for row in rows:
-        # we don't actually loop. There's only ever one. (I found out too late...)
-        if not usename:
-            data = namedColumns(row,description)
-            fwdName = cms_data['creator_text_forward']
-            if (data['index_name']):
-              # ah, got something, let's use that instead:
-              fwdName = data['first_name'] + (" " if data['first_name'] else "") + data['index_name']
-            person.setDisplayName(fwdName)
-            person.setSalutation(data['prefix'])
-            person.setForeName(data['first_name'])
-            person.setSurName(data['index_name'])
-            person.setNameAdditions(data['suffix'])
-            if agent_data['gender']:
-                if agent_data['gender'].upper() == 'M':
-                    person.setGender("male")
-                if agent_data['gender'].upper() == 'F':
-                    person.setGender("female")
-            person.setBirthPlace(agent_data['birth_place'])
-            person.setBirthDate(str(agent_data['start_date']))
-            person.setDeathPlace(agent_data['death_place'])
-            person.setDeathDate(str(agent_data['end_date']))
-            nationalitylist = NationalityList()
-            nationalitylist.getNationality().add(agent_data['nationality'])
-            person.setNationalities(nationalitylist)
-        else:
-            # again, just a name
-            person.setDisplayName(usename)
-            note = "CS Import Script: creator inferred from original string: '%s'" %(cms_data['creator_text_forward'])
-            print note
-            person.setNameNote(note)
-        personauthorityinfo = getPersonauthorityInfo()
-        personauthorityname = personauthorityinfo['short_identifier']
-        shortid = person.getDisplayName().replace(' ','-')+'-'+csid
-        # build and set the refname
-        refname = "urn:cspace:walkerart.org:personauthorities:name("+personauthorityname+"):item:"
-        refname += "name("+shortid+")'"+person.getDisplayName().replace("'","\'")+"'"
-        person.setRefName(refname)
-        person.setShortIdentifier(shortid)
-        person.setInAuthority(personauthorityinfo['csid'])
-        person.setTermStatus('accepted')
+    
+    fwdName = agent_data['preferredlabel']
+    if not fwdName:
+      fwdName = agent_data['firstname'] + (" " if agent_data['firstname'] else "") + agent_data['lastname']
+    person.setDisplayName(fwdName)
+    # we don't have this info...
+    #person.setSalutation(data['prefix'])
+    person.setForeName(agent_data['firstname'])
+    person.setSurName(agent_data['lastname'])
+    # we don't have this info...
+    #person.setNameAdditions(data['suffix'])
+    if agent_data['sex']:
+        if agent_data['sex'].upper() == 'M':
+            person.setGender("male")
+        if agent_data['sex'].upper() == 'F':
+            person.setGender("female")
+    person.setBirthPlace(agent_data['placeofbirth'])
+    person.setBirthDate(agent_data['birthdate'] if agent_data['birthdate'] else agent_data['born'])
+    # we don't have this info...
+    #person.setDeathPlace(agent_data['placeofdeath'])
+    person.setDeathDate(agent_data['deathdate'] if agent_data['deathdate'] else agent_data['died'])
+    nationalitylist = NationalityList()
+    nationalitylist.getNationality().add(agent_data['ulan_ulan_nationality'] if agent_data['ulan_ulan_nationality'] else agent_data['nationality'])
+    person.setNationalities(nationalitylist)
         
-        person_walker = PersonsWalkerart()
-        person_walker.setEmployer("test employer!")
+    personauthorityinfo = getPersonauthorityInfo()
+    personauthorityname = personauthorityinfo['short_identifier']
+    shortid = person.getDisplayName().replace(' ','-')+'-'+csid
+    # build and set the refname
+    refname = "urn:cspace:walkerart.org:personauthorities:name("+personauthorityname+"):item:"
+    refname += "name("+shortid+")'"+person.getDisplayName().replace("'","\'")+"'"
+    person.setRefName(refname)
+    person.setShortIdentifier(shortid)
+    person.setInAuthority(personauthorityinfo['csid'])
+    person.setTermStatus('accepted')
+    
+    person_walker = PersonsWalkerart()
+    person_walker.setEmployer("test employer!")
+    
+    note = ''
+    if agent_data['wac_id']:
+        # store the old id in the notes field
+        note += "WAC_ID:%s" % (agent_data['wac_id']) + "\n"
+    if agent_data['ulanid']:
+        # store the old id in the notes field
+        note += "ULAN_ID:%s" % (agent_data['ulanid']) + "\n"
+    #sys.stderr.write(note+"\n")
+    person.setNameNote(note)
 
-        if csidmiss:
-            # new person, add to dom and cs table
-            # first the schema extensions
-            extensions = []
-            extensions.append(addObjectToDom(**{'object':person_walker,
-                  'doc':doc,
-                  'type':'Person',
-                  'service':'Persons',
-                  'ns_name':'persons_walkerart',
-                  'ns_uri':'http://collectionspace.org/services/person/local/walkerart',
-                  'return_schema':True}))
-            
-            # then the main person object, with extensions in the same import wrapper
-            addObjectToDom(**{'object':person,
-                  'doc':doc,
-                  'type':'Person',
-                  'service':'Persons',
-                  'ns_name':'persons_common',
-                  'ns_uri':'http://collectionspace.org/services/person',
-                  'csid':csid,
-                  'extensions':extensions})
-            # put it in the cs table for the next time we see this person:
-            sql = "INSERT into cs (other_table, other_id, csid, refname, hostname) values (?,?,?,?,?)"
-            global HOSTNAME
-            cur.execute(sql,('agent',str(agent_data['id']),csid,refname,HOSTNAME))
+    if csidmiss:
+        # new person, add to dom and cs table
+        # first the schema extensions
+        extensions = []
+        extensions.append(addObjectToDom(**{'object':person_walker,
+              'doc':doc,
+              'type':'Person',
+              'service':'Persons',
+              'ns_name':'persons_walkerart',
+              'ns_uri':'http://collectionspace.org/services/person/local/walkerart',
+              'return_schema':True}))
         
-        return refname
+        # then the main person object, with extensions in the same import wrapper
+        addObjectToDom(**{'object':person,
+              'doc':doc,
+              'type':'Person',
+              'service':'Persons',
+              'ns_name':'persons_common',
+              'ns_uri':'http://collectionspace.org/services/person',
+              'csid':csid,
+              'extensions':extensions})
+        # put it in the cs table for the next time we see this person:
+        sql = "INSERT into cs (other_table, other_id, csid, refname, hostname) values (?,?,?,?,?)"
+        global HOSTNAME
+        cur.execute(sql,('agent',other_id,csid,refname,HOSTNAME))
+        
+    return refname

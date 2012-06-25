@@ -54,7 +54,9 @@ for line in fin:
             for col in cols:
                 col = col.replace(' ','').replace('.','').replace(':','').replace('/','').replace('#','').replace("'",'')
                 col = col.replace('nationality','ulan_nationality') # bug in wacart I can't correct till Joe's done
-                col = col.replace('Date','date_wac    ') # bug in wacart I can't correct till Joe's done
+                if col == 'Date':
+                    col = 'date_wac'
+                col = col.replace('PrinterøsMarks','PrintersMarks') # bug in wacart I can't correct till Joe's done
                 col_list.append("{}".format(col))
                 sql += u"    {} text,\n".format(col)
             sql = sql[:-2] # remove trailing comma
@@ -87,6 +89,7 @@ for line in fin:
 #            str = "{}\n".format(sql_placeholders)
 #            #print cur.mogrify(str,cols)
 #            sql += cur.mogrify(str,cols)
+    sql = sql.replace('\x0b','\\r') #replace vertical tabs with carriage return marker
     if sql:
         fout.write(sql)
     sql = u''

@@ -133,7 +133,7 @@ def writeDom(doc):
 def namedColumns(row,description):
     newrow = {}
     for i in range(len(row)):
-        newrow[description[i][0]] = row[i]
+        newrow[description[i][0]] = row[i].split('|||') if '|||' in row[i] else row[i]
     return newrow
 
 seq = 0
@@ -144,3 +144,12 @@ def next_seq():
 
 def getCSID():
     return str(UUID.randomUUID())
+
+def getIndexFromField(field,index):
+    # figures out the right way to provide field data with an index
+    if isinstance(field,list):
+        if len(field) > index:
+            return field[index]
+        else:
+            return '' # asking for an index we don't have, return ''
+    return field

@@ -3,4 +3,6 @@
 .pydevproject
 .settings/
 *.xml
+*.tab
+*.sql
 

@@ -30,53 +30,110 @@ from org.collectionspace.services.collectionobject import StructuredDateGroup
 
 ### python imports
 from utils import *
+import re
+import sys
 from personauthority import refnameForPerson
 
 ######################################################### XML population
-        
+
+fraction_1 = re.compile(r"^(\d+)[ |-](\d+)/(\d+)$")
+fraction_2 = re.compile(r"^(\d+)/(\d+)$")
+fraction_3 = re.compile(r"^[\d\.]+$")
+def defractionize(fraction_ref):
+    # turn a measurement string into an appropriate decimal.
+    fraction_ref = fraction_ref.replace('"','').replace('--','-').strip();
+    #$$fraction_ref =~ s/(\S) $/$1/; -- I think this is a strip?
+    out = ''
+    m = fraction_1.match(fraction_ref)
+    if m:
+        out = float(m.group(1)) + float(float(m.group(2))/float(m.group(3)))
+    if not out:
+        m = fraction_2.match(fraction_ref)
+        if m:
+            out = float(m.group(1))/float(m.group(2))
+    if not out:
+        m = fraction_3.match(fraction_ref)
+        if m:
+            out = int(fraction_ref)
+    if not out and fraction_ref:
+        sys.stderr.write("Discarding measurement '%s'\n" % (fraction_ref))
+    return out
+
+           
 def addDimensionsToObject(collectionobject,cms_data,cur):
-    sql = "SELECT m.measurement_type, m.unit, m.value \
-    FROM measurement m WHERE m.object_id=? order by m.id desc"
-    
-    cur.execute(sql, (cms_data['cms_id'],) )
-    
-    rows = cur.fetchall()
-    if len(rows) > 0:
+    numdims = len(cms_data['width']) if isinstance(cms_data['width'],list) else 1 if cms_data['width'] else 0
+    if numdims:
         measured_part_group_list = MeasuredPartGroupList()
         measured_part_groups = measured_part_group_list.getMeasuredPartGroup() 
-        measured_part_group = MeasuredPartGroup()
-        measured_part_group.setDimensionSummary(cms_data['measurement_text'])
-        dimension_sub_group_list = DimensionSubGroupList()
-        dimension_sub_groups = dimension_sub_group_list.getDimensionSubGroup()
         
-        description = cur.description
-        for row in rows:
-            data = namedColumns(row,description)
-            dimension_sub_group = DimensionSubGroup()
-            mtype = data['measurement_type'].upper()
-            measure_type = "width" if (mtype == 'W') else "height" if (mtype == 'H') else 'D'
-            dimension_sub_group.setDimension(measure_type)
-            dimension_sub_group.setMeasurementUnit("inches");
-            dimension_sub_group.setMeasurementMethod("ruler")
-            dimension_sub_group.setValue(BigDecimal(str(data['value'])))
-            dimension_sub_groups.add(dimension_sub_group)
-        measured_part_groups.add(measured_part_group)
-        measured_part_group.setDimensionSubGroupList(dimension_sub_group_list)
-        collectionobject.setMeasuredPartGroupList(measured_part_group_list)
+        if numdims == 1:
+            # fake array
+            for field in ['width','height','depth','weight','dimensions','dimdescription']:
+                cms_data[field] = [cms_data[field]]
+        for i in range(numdims):
+            measured_part_group = MeasuredPartGroup()
+            measured_part_group.setDimensionSummary(getIndexFromField(cms_data['dimensions'],i))
+            measured_part_group.setMeasuredPart(getIndexFromField(cms_data['dimdescription'],i))
+            dimension_sub_group_list = DimensionSubGroupList()
+            dimension_sub_groups = dimension_sub_group_list.getDimensionSubGroup()
+            
+            for measure_type in ['width','height','depth','weight']:
+                if cms_data[measure_type]:
+                    dimension_sub_group = DimensionSubGroup()
+                    dimension_sub_group.setDimension(measure_type)
+                    if measure_type == 'weight':
+                        dimension_sub_group.setMeasurementUnit("pounds")
+                        dimension_sub_group.setMeasurementMethod("scale")
+                    else:
+                        dimension_sub_group.setMeasurementUnit("inches")
+                        dimension_sub_group.setMeasurementMethod("ruler")
+                    val = defractionize(str(getIndexFromField(cms_data[measure_type],i)))
+                    if val:
+                        dimension_sub_group.setValue(BigDecimal(val))
+                        dimension_sub_groups.add(dimension_sub_group)
+            measured_part_groups.add(measured_part_group)
+            measured_part_group.setDimensionSubGroupList(dimension_sub_group_list)
+            collectionobject.setMeasuredPartGroupList(measured_part_group_list)
     
+date_1 = re.compile(r"^\D*(\d{4})\D*$")
+date_2 = re.compile(r"^\D*(\d{4})\D+(\d{4}).*$")
+date_3 = re.compile(r"^\D*(\d{4}).(\d{2}).*$")
+date_3a = re.compile(r"(\d{2})")
 def addProductionDatesToObject(collectionobject,cms_data,cur):
     # Production dates
+    start_date = ''
+    end_date   = ''
+    date = cms_data['date_wac'].replace('unknown','')
+    m = date_1.match(date)
+    if m:
+        start_date = m.group(1)
+        end_date = m.group(1)
+        
+    if not start_date:
+        m = date_2.match(date)
+        if m:
+            start_date = m.group(1)
+            end_date = m.group(2)
+    
+    if not start_date:
+        m = date_3.match(date)
+        if m:
+            start_date = m.group(1)
+            end_date = m.group(2)
+            m2 = date_3a.match(start_date)
+            end_date = m2.group(1) + end_date;
+    
     structured_date_group = StructuredDateGroup()
     structured_date_group.setScalarValuesComputed(False)
-    if cms_data['creation_end_year']:
-        structured_date_group.setDateLatestYear(BigInteger(str(cms_data['creation_end_year'])))
+    if end_date:
+        structured_date_group.setDateLatestYear(BigInteger(str(end_date)))
     structured_date_group.setDateEarliestSingleEra("urn:cspace:walkerart.org:vocabularies:name(dateera):item:name(ce)'CE'")
-    structured_date_group.setDateDisplayDate(cms_data['creation_date_text'])
+    structured_date_group.setDateDisplayDate(cms_data['date_wac'])
     structured_date_group.setDateEarliestSingleCertainty("urn:cspace:walkerart.org:vocabularies:name(datecertainty):item:name(after)'After'")
     structured_date_group.setDateLatestEra("urn:cspace:walkerart.org:vocabularies:name(dateera):item:name(ce)'CE'")
     structured_date_group.setDateLatestCertainty("urn:cspace:walkerart.org:vocabularies:name(datecertainty):item:name(before)'Before'")
-    if cms_data['creation_start_year']:
-        structured_date_group.setDateEarliestSingleYear(BigInteger(str(cms_data['creation_start_year'])))
+    if start_date:
+        structured_date_group.setDateEarliestSingleYear(BigInteger(str(start_date)))
     
     prod_date_group_list = ObjectProductionDateGroupList()
     dategroups = prod_date_group_list.getObjectProductionDateGroup()
@@ -85,64 +142,67 @@ def addProductionDatesToObject(collectionobject,cms_data,cur):
 
 def addTitleToObject(collectionobject,cms_data,cur):
     # Title
-    # this is overkill since it appears our database has only one title and it's always preferred.
-    sql = "select t.title, t.title_type from title t where t.object_id = ?"
-    
-    cur.execute(sql, (cms_data['cms_id'],) )
-    
-    rows = cur.fetchall()
-    if len(rows) > 0:
-        titlegrouplist = TitleGroupList()
-        titlegroups = titlegrouplist.getTitleGroup()
-        
-        description = cur.description
-        for row in rows:
-            data = namedColumns(row,description)
-            titlegroup = TitleGroup()
-            titlegroup.setTitle(cms_data['title'])
-            titlegroups.add(titlegroup)
-        collectionobject.setTitleGroupList(titlegrouplist)
+    titlegrouplist = TitleGroupList()
+    titlegroups = titlegrouplist.getTitleGroup()
+    titlegroup = TitleGroup()
+    titlegroup.setTitle(cms_data['title'])
+    titlegroups.add(titlegroup)
+    collectionobject.setTitleGroupList(titlegrouplist)
     
 def addCreatorsToObject(collectionobject,cms_data,cur,doc):
     # Creators are an authority, so we associate via refname.
     # check if it exists and use it, otherwise create person record.
-    sql = "SELECT a.id, a.gender, a.nationality, a.ethnicity, a.date_text, \
-    a.start_date, a.end_date, a.birth_place, a.death_place, a.active_date_place, \
-    oa.role \
-    FROM agent a, object_agent oa WHERE a.id = oa.agent_id and oa.object_id=?"
     
-    cur.execute(sql,(cms_data['cms_id'],) );
-    
-    rows = cur.fetchall()
-    if len(rows) > 0:
+    numdims = len(cms_data['artist']) if isinstance(cms_data['artist'],list) else 1 if cms_data['artist'] else 0
+    if numdims:
         persongrouplist = ObjectProductionPersonGroupList();
         persongroups = persongrouplist.getObjectProductionPersonGroup();
-        
-    # figure out if we need to "magically" extract names from a pile of shit
-    usenames = cms_data['creator_text_forward'].split(',')
-    do_multiname_hack = False
-    orig_agent_size = len(rows)
-    while len(usenames) > len(rows):
-        do_multiname_hack = True # name extraction is a go, set a flag so we know
-        rows.append(row[0]) #
+        #sys.stderr.write(str(cms_data))
+        for i in range(numdims):
+            agent_data = {}
+            for field in [
+                        'Sex', \
+                        'Author', \
+                        'Authorbirthyear', \
+                        'Born', \
+                        'AuthorDeathyear', \
+                        'Died', \
+                        'Authorgender', \
+                        'MNArtist', \
+                        'Ethnicity', \
+                        'AuthorNationality', \
+                        'Nationality', \
+                        'Authorplaceofbirth', \
+                        'PlaceofBirth', \
+                        'LastName', \
+                        'ReproductionRightsheldby', \
+                        'WACdisplayname', \
+                        'ULANID', \
+                        'preferredlabel', \
+                        'ulan_ulan_nationality', \
+                        'role', \
+                        'birthdate', \
+                        'deathdate', \
+                        'FirstName']:
+                #sys.stderr.write(field)
+                #sys.stderr.write(" "+str(i)+"\n")
+                agent_data[field.lower()] = getIndexFromField(cms_data[field.lower()],i)
+            # see if we can get the old wac id
+            sql = "SELECT n.agent_id from names n where upper(n.first_name) like upper(?) \
+                    AND upper(n.index_name) like upper(?)"
+            cur.execute(sql,(agent_data['firstname'],agent_data['lastname']) );
+            row = cur.fetchone()
+            agent_data['wac_id'] = ''
+            if row:
+                agent_data['wac_id'] = str(row[0])
             
-    description = cur.description
-    loopcount = 0
-    nameindex = 0
-    for row in rows:
-        agent_data = namedColumns(row,description)
-        loopcount += 1
-        usename = None
-        if loopcount>orig_agent_size and do_multiname_hack:
-            usename = strip(usenames[nameIndex])
-        
-        # go build it
-        refname=refnameForPerson(agent_data,cms_data,doc,cur,usename)
-        
-        persongroup = ObjectProductionPersonGroup()
-        persongroup.setObjectProductionPersonRole(agent_data['role'])
-        persongroup.setObjectProductionPerson(refname)
-        persongroups.add(persongroup)
-        collectionobject.setObjectProductionPersonGroupList(persongrouplist)
+            # go build it
+            refname=refnameForPerson(agent_data,cms_data,doc,cur)
+            
+            persongroup = ObjectProductionPersonGroup()
+            persongroup.setObjectProductionPersonRole(agent_data['role'])
+            persongroup.setObjectProductionPerson(refname)
+            persongroups.add(persongroup)
+            collectionobject.setObjectProductionPersonGroupList(persongrouplist)
     
     
