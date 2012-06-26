@@ -47,8 +47,9 @@ def getPersonauthorityInfo():
                 personauthorityinfo = {'csid':csid,'short_identifier':short_identifier}
                 return personauthorityinfo
     except Exception, e:
-        sys.stderr.writeln(e)
-    sys.stderr.writeln("is the cspace server running??")
+        sys.stderr.write(str(e))
+    sys.stderr.write("\nis the cspace server running??\n")
+    sys.exit()
 
 def addPersonObjectToDom(person,doc):
     try:
