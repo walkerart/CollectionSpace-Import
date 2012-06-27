@@ -61,39 +61,40 @@ def defractionize(fraction_ref):
 
            
 def addDimensionsToObject(collectionobject,cms_data,cur):
-    numdims = len(cms_data['width']) if isinstance(cms_data['width'],list) else 1 if cms_data['width'] else 0
-    if numdims:
+    sql = "select * FROM wac_dimensions where wac_object_id=?";
+    cur.execute(sql,(cms_data['id'],));
+    
+    rows = cur.fetchall()
+    description = cur.description
+    if len(rows) > 0:
         measured_part_group_list = MeasuredPartGroupList()
         measured_part_groups = measured_part_group_list.getMeasuredPartGroup() 
         
-        if numdims == 1:
-            # fake array
-            for field in ['width','height','depth','weight','dimensions','dimdescription']:
-                cms_data[field] = [cms_data[field]]
-        for i in range(numdims):
-            measured_part_group = MeasuredPartGroup()
-            measured_part_group.setDimensionSummary(getIndexFromField(cms_data['dimensions'],i))
-            measured_part_group.setMeasuredPart(getIndexFromField(cms_data['dimdescription'],i))
-            dimension_sub_group_list = DimensionSubGroupList()
-            dimension_sub_groups = dimension_sub_group_list.getDimensionSubGroup()
-            
-            for measure_type in ['width','height','depth','weight']:
-                if cms_data[measure_type]:
-                    dimension_sub_group = DimensionSubGroup()
-                    dimension_sub_group.setDimension(measure_type)
-                    if measure_type == 'weight':
-                        dimension_sub_group.setMeasurementUnit("pounds")
-                        dimension_sub_group.setMeasurementMethod("scale")
-                    else:
-                        dimension_sub_group.setMeasurementUnit("inches")
-                        dimension_sub_group.setMeasurementMethod("ruler")
-                    val = defractionize(str(getIndexFromField(cms_data[measure_type],i)))
-                    if val:
-                        dimension_sub_group.setValue(BigDecimal(val))
-                        dimension_sub_groups.add(dimension_sub_group)
-            measured_part_groups.add(measured_part_group)
-            measured_part_group.setDimensionSubGroupList(dimension_sub_group_list)
-            collectionobject.setMeasuredPartGroupList(measured_part_group_list)
+    for row in rows:
+        data = namedColumns(row,description)
+        measured_part_group = MeasuredPartGroup()
+        measured_part_group.setDimensionSummary(data['dimensions'])
+        measured_part_group.setMeasuredPart(data['dimdescription'])
+        dimension_sub_group_list = DimensionSubGroupList()
+        dimension_sub_groups = dimension_sub_group_list.getDimensionSubGroup()
+        
+        for measure_type in ['width','height','depth','weight']:
+            if data[measure_type]:
+                dimension_sub_group = DimensionSubGroup()
+                dimension_sub_group.setDimension(measure_type)
+                if measure_type == 'weight':
+                    dimension_sub_group.setMeasurementUnit("pounds")
+                    dimension_sub_group.setMeasurementMethod("scale")
+                else:
+                    dimension_sub_group.setMeasurementUnit("inches")
+                    dimension_sub_group.setMeasurementMethod("ruler")
+                val = defractionize(str(data[measure_type]))
+                if val:
+                    dimension_sub_group.setValue(BigDecimal(val))
+                    dimension_sub_groups.add(dimension_sub_group)
+        measured_part_groups.add(measured_part_group)
+        measured_part_group.setDimensionSubGroupList(dimension_sub_group_list)
+        collectionobject.setMeasuredPartGroupList(measured_part_group_list)
     
 date_1 = re.compile(r"^\D*(\d{4})\D*$")
 date_2 = re.compile(r"^\D*(\d{4})\D+(\d{4}).*$")
@@ -153,56 +154,25 @@ def addCreatorsToObject(collectionobject,cms_data,cur,doc):
     # Creators are an authority, so we associate via refname.
     # check if it exists and use it, otherwise create person record.
     
-    numdims = len(cms_data['artist']) if isinstance(cms_data['artist'],list) else 1 if cms_data['artist'] else 0
-    if numdims:
+    sql = "select * FROM wac_artist where wac_object_id=?";
+    cur.execute(sql,(cms_data['id'],));
+    
+    rows = cur.fetchall()
+    description = cur.description
+    if len(rows) > 0:
         persongrouplist = ObjectProductionPersonGroupList();
         persongroups = persongrouplist.getObjectProductionPersonGroup();
-        #sys.stderr.write(str(cms_data))
-        for i in range(numdims):
-            agent_data = {}
-            for field in [
-                        'Sex', \
-                        'Author', \
-                        'Authorbirthyear', \
-                        'Born', \
-                        'AuthorDeathyear', \
-                        'Died', \
-                        'Authorgender', \
-                        'MNArtist', \
-                        'Ethnicity', \
-                        'AuthorNationality', \
-                        'Nationality', \
-                        'Authorplaceofbirth', \
-                        'PlaceofBirth', \
-                        'LastName', \
-                        'ReproductionRightsheldby', \
-                        'WACdisplayname', \
-                        'ULANID', \
-                        'preferredlabel', \
-                        'ulan_ulan_nationality', \
-                        'role', \
-                        'birthdate', \
-                        'deathdate', \
-                        'FirstName']:
-                #sys.stderr.write(field)
-                #sys.stderr.write(" "+str(i)+"\n")
-                agent_data[field.lower()] = getIndexFromField(cms_data[field.lower()],i)
-            # see if we can get the old wac id
-            sql = "SELECT n.agent_id from names n where upper(n.first_name) like upper(?) \
-                    AND upper(n.index_name) like upper(?)"
-            cur.execute(sql,(agent_data['firstname'],agent_data['lastname']) );
-            row = cur.fetchone()
-            agent_data['wac_id'] = ''
-            if row:
-                agent_data['wac_id'] = str(row[0])
+        
+    for row in rows:
+        data = namedColumns(row,description)
             
-            # go build it
-            refname=refnameForPerson(agent_data,cms_data,doc,cur)
-            
-            persongroup = ObjectProductionPersonGroup()
-            persongroup.setObjectProductionPersonRole(agent_data['role'])
-            persongroup.setObjectProductionPerson(refname)
-            persongroups.add(persongroup)
-            collectionobject.setObjectProductionPersonGroupList(persongrouplist)
+        # go build it
+        refname=refnameForPerson(data,cms_data,doc,cur)
+        
+        persongroup = ObjectProductionPersonGroup()
+        persongroup.setObjectProductionPersonRole(data['role'])
+        persongroup.setObjectProductionPerson(refname)
+        persongroups.add(persongroup)
+        collectionobject.setObjectProductionPersonGroupList(persongrouplist)
     
     

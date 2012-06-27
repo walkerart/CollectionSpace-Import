@@ -38,7 +38,7 @@ LASTNAME_COL=69
 sql = u''
 wac_obj_placeholders = ''
 size = 0
-limit = 1000000
+limit = 10000000
 count = 0
 objectid = ''
 full_col_list = []
@@ -49,13 +49,18 @@ related_tables = {'wac_condition':[
                                ],
                   'wac_artist':[
                             'Artist',
+                            'Sex',
                             'birthdate',
                             'deathdate',
+                            'Born',
+                            'Died',
                             'FirstName',
                             'LastName',
+                            'PlaceofBirth',
                             'preferredlabel',
                             'role',
                             'ULANID',
+                            'Nationality',
                             'ulan_ulan_nationality',
                             ],
                   'wac_valuation':[
@@ -157,7 +162,7 @@ CREATE TABLE {} (\n""".format(tablename,tablename)
                                 wacid=''
                                 if cols[LASTNAME_COL]:
                                     #sys.stderr.write("{} {}\n".format(cols[FIRSTNAME_COL],cols[LASTNAME_COL]))
-                                    cur.execute("select agent_id from names where first_name=%s and index_name=%s",(cols[FIRSTNAME_COL],cols[LASTNAME_COL]))
+                                    cur.execute("select agent_id from names where upper(first_name) like upper(%s) and upper(index_name) like (%s)",(cols[FIRSTNAME_COL],cols[LASTNAME_COL]))
                                     row = cur.fetchone()
                                     if row and row['agent_id']:
                                         wacid = str(row['agent_id'])

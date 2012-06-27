@@ -19,7 +19,11 @@ from org.w3c.dom import Node
 
 from org.collectionspace.services.person import PersonsCommon
 from org.collectionspace.services.person import NationalityList
-from org.collectionspace.services.person.local.walkerart import PersonsWalkerart
+from org.collectionspace.services.person import PersonTermGroupList
+from org.collectionspace.services.person import PersonTermGroup
+from org.collectionspace.services.person import StructuredDateGroup
+# schema extension
+#from org.collectionspace.services.person.local.walkerart import PersonsWalkerart
 
 ### python imports
 from utils import *
@@ -41,7 +45,7 @@ def getPersonauthorityInfo():
         
         # bit of fiddling to find the Default Person Authority
         for dname in  dom.getElementsByTagName('displayName'):
-            if dname.firstChild.data == 'Default Person Authority':
+            if dname.firstChild.data == 'Local Persons':
                 csid = dname.parentNode.getElementsByTagName('csid')[0].firstChild.data
                 short_identifier = dname.parentNode.getElementsByTagName('shortIdentifier')[0].firstChild.data
                 personauthorityinfo = {'csid':csid,'short_identifier':short_identifier}
@@ -82,7 +86,7 @@ def addPersonObjectToDom(person,doc):
 
 
 def refnameForPerson(agent_data,cms_data,doc,cur):
-    other_id = agent_data['firstname']+agent_data['lastname']+agent_data['wac_id']+agent_data['ulanid']
+    other_id = agent_data['firstname']+agent_data['lastname']+agent_data['web_id']+agent_data['ulanid']
     # look for existing refname
     sql = "SELECT refname,csid from cs where other_table=? and other_id=?"
     cur.execute(sql,('agent',str(other_id)))
@@ -92,51 +96,66 @@ def refnameForPerson(agent_data,cms_data,doc,cur):
     if row:
         csid = row[1]
         csidmiss = False
+        return row[0] # this isn't how the script used to be, but... what's the point of the cache? return it.
     
     person = PersonsCommon()
+    person_term_group_list = PersonTermGroupList()
+    person_term_groups = person_term_group_list.getPersonTermGroup()
+    person_term_group = PersonTermGroup()
     
     fwdName = agent_data['preferredlabel']
     if not fwdName:
       fwdName = agent_data['firstname'] + (" " if agent_data['firstname'] else "") + agent_data['lastname']
-    person.setDisplayName(fwdName)
+    person_term_group.setTermDisplayName(fwdName)
+    person_term_group.setTermStatus('accepted')
     # we don't have this info...
     #person.setSalutation(data['prefix'])
-    person.setForeName(agent_data['firstname'])
-    person.setSurName(agent_data['lastname'])
+    person_term_group.setForeName(agent_data['firstname'])
+    person_term_group.setSurName(agent_data['lastname'])
     # we don't have this info...
     #person.setNameAdditions(data['suffix'])
+    person_term_groups.add(person_term_group)
+    person.setPersonTermGroupList(person_term_group_list)
+    
     if agent_data['sex']:
         if agent_data['sex'].upper() == 'M':
             person.setGender("male")
         if agent_data['sex'].upper() == 'F':
             person.setGender("female")
     person.setBirthPlace(agent_data['placeofbirth'])
-    person.setBirthDate(agent_data['birthdate'] if agent_data['birthdate'] else agent_data['born'])
+    
+    
+    m = get_class("org.collectionspace.services.person.StructuredDateGroup")
+    
+    bday = agent_data['birthdate'] if agent_data['birthdate'] else agent_data['born']
+    person.setBirthDateGroup(setStructuredDateYear(m(),bday))
+    
+    dday = agent_data['deathdate'] if agent_data['deathdate'] else agent_data['died']
+    person.setDeathDateGroup(setStructuredDateYear(m(),dday))
+    
     # we don't have this info...
     #person.setDeathPlace(agent_data['placeofdeath'])
-    person.setDeathDate(agent_data['deathdate'] if agent_data['deathdate'] else agent_data['died'])
     nationalitylist = NationalityList()
     nationalitylist.getNationality().add(agent_data['ulan_ulan_nationality'] if agent_data['ulan_ulan_nationality'] else agent_data['nationality'])
     person.setNationalities(nationalitylist)
         
     personauthorityinfo = getPersonauthorityInfo()
     personauthorityname = personauthorityinfo['short_identifier']
-    shortid = person.getDisplayName().replace(' ','-')+'-'+csid
+    shortid = fwdName.replace(' ','-')+'-'+csid
     # build and set the refname
     refname = "urn:cspace:walkerart.org:personauthorities:name("+personauthorityname+"):item:"
-    refname += "name("+shortid+")'"+person.getDisplayName().replace("'","\'")+"'"
+    refname += "name("+shortid+")'"+fwdName.replace("'","\'")+"'"
     person.setRefName(refname)
     person.setShortIdentifier(shortid)
     person.setInAuthority(personauthorityinfo['csid'])
-    person.setTermStatus('accepted')
     
-    person_walker = PersonsWalkerart()
-    person_walker.setEmployer("test employer!")
+#    person_walker = PersonsWalkerart()
+#    person_walker.setEmployer("test employer!")
     
     note = ''
-    if agent_data['wac_id']:
+    if agent_data['web_id']:
         # store the old id in the notes field
-        note += "WAC_ID:%s" % (agent_data['wac_id']) + "\n"
+        note += "WEB ID:%s" % (agent_data['web_id']) + "\n"
     if agent_data['ulanid']:
         # store the old id in the notes field
         note += "ULAN_ID:%s" % (agent_data['ulanid']) + "\n"
@@ -147,13 +166,13 @@ def refnameForPerson(agent_data,cms_data,doc,cur):
         # new person, add to dom and cs table
         # first the schema extensions
         extensions = []
-        extensions.append(addObjectToDom(**{'object':person_walker,
-              'doc':doc,
-              'type':'Person',
-              'service':'Persons',
-              'ns_name':'persons_walkerart',
-              'ns_uri':'http://collectionspace.org/services/person/local/walkerart',
-              'return_schema':True}))
+#        extensions.append(addObjectToDom(**{'object':person_walker,
+#              'doc':doc,
+#              'type':'Person',
+#              'service':'Persons',
+#              'ns_name':'persons_walkerart',
+#              'ns_uri':'http://collectionspace.org/services/person/local/walkerart',
+#              'return_schema':True}))
         
         # then the main person object, with extensions in the same import wrapper
         addObjectToDom(**{'object':person,

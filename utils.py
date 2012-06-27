@@ -45,12 +45,14 @@ from org.collectionspace.services.collectionobject import StructuredDateGroup
 #### Python imports
 import urllib2
 import platform
+import re
 
 #################### GLOBALS
 HOSTNAME = platform.node()
 CSPACE_URL = "http://localhost:8180/"
 password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
-password_mgr.add_password(None, CSPACE_URL, 'admin@walkerart.org', 'Administrator')
+#password_mgr.add_password(None, CSPACE_URL, 'admin@walkerart.org', 'Administrator')
+password_mgr.add_password(None, CSPACE_URL, 'admin@core.collectionspace.org', 'Administrator')
 handler = urllib2.HTTPBasicAuthHandler(password_mgr)
 opener = urllib2.build_opener(handler)
 urllib2.install_opener(opener)
@@ -153,3 +155,24 @@ def getIndexFromField(field,index):
         else:
             return '' # asking for an index we don't have, return ''
     return field
+
+def get_class( kls ):
+    parts = kls.split('.')
+    module = ".".join(parts[:-1])
+    m = __import__( module )
+    for comp in parts[1:]:
+        m = getattr(m, comp)            
+    return m
+
+year_in_string_re = re.compile(r"^[^\d]*(\d{4})[^\d]*$")
+def setStructuredDateYear(dateGroup,date_string):
+    year = None
+    m = year_in_string_re.match(date_string)
+    if m:
+        year = m.group(1)
+    if date_string:
+        dateGroup.setDateDisplayDate(date_string)
+        if year:
+            dateGroup.setDateLatestYear(BigInteger(str(year)))
+            dateGroup.setDateEarliestSingleYear(BigInteger(str(year)))
+    return dateGroup
