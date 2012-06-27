@@ -126,15 +126,15 @@ def addProductionDatesToObject(collectionobject,cms_data,cur):
     
     structured_date_group = StructuredDateGroup()
     structured_date_group.setScalarValuesComputed(False)
+    structured_date_group.setDateDisplayDate(cms_data['date_wac'])
     if end_date:
         structured_date_group.setDateLatestYear(BigInteger(str(end_date)))
-    structured_date_group.setDateEarliestSingleEra("urn:cspace:walkerart.org:vocabularies:name(dateera):item:name(ce)'CE'")
-    structured_date_group.setDateDisplayDate(cms_data['date_wac'])
-    structured_date_group.setDateEarliestSingleCertainty("urn:cspace:walkerart.org:vocabularies:name(datecertainty):item:name(after)'After'")
-    structured_date_group.setDateLatestEra("urn:cspace:walkerart.org:vocabularies:name(dateera):item:name(ce)'CE'")
-    structured_date_group.setDateLatestCertainty("urn:cspace:walkerart.org:vocabularies:name(datecertainty):item:name(before)'Before'")
+        structured_date_group.setDateLatestEra("urn:cspace:walkerart.org:vocabularies:name(dateera):item:name(ce)'CE'")
+        structured_date_group.setDateLatestCertainty("urn:cspace:walkerart.org:vocabularies:name(datecertainty):item:name(before)'Before'")
     if start_date:
         structured_date_group.setDateEarliestSingleYear(BigInteger(str(start_date)))
+        structured_date_group.setDateEarliestSingleEra("urn:cspace:walkerart.org:vocabularies:name(dateera):item:name(ce)'CE'")
+        structured_date_group.setDateEarliestSingleCertainty("urn:cspace:walkerart.org:vocabularies:name(datecertainty):item:name(after)'After'")
     
     prod_date_group_list = ObjectProductionDateGroupList()
     dategroups = prod_date_group_list.getObjectProductionDateGroup()

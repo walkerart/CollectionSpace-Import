@@ -63,6 +63,9 @@ related_tables = {'wac_condition':[
                             'Nationality',
                             'ulan_ulan_nationality',
                             ],
+                  'wac_subject':[
+                            'IAIASubject',
+                            ],
                   'wac_valuation':[
                                'ValuationDate',
                                'Valuationsource',
@@ -170,9 +173,14 @@ CREATE TABLE {} (\n""".format(tablename,tablename)
                         data_cols[key].append(cols[i])
             
             for key, val in data_cols.items():
-                if key not in create_data:
-                    create_data[key] = ''
-                create_data[key] += u"\t".join(val)+"\n"
+                has_data = False
+                for testcol in val[1:]:
+                    if testcol:
+                        has_data = True
+                if has_data:
+                    if key not in create_data:
+                        create_data[key] = ''
+                    create_data[key] += u"\t".join(val)+"\n"
                         
 for key, val in create_tables.items():
     sql += u"COPY {} ({}) FROM stdin;\n".format(key,','.join(val))

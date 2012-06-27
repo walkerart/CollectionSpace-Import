@@ -173,6 +173,7 @@ def setStructuredDateYear(dateGroup,date_string):
     if date_string:
         dateGroup.setDateDisplayDate(date_string)
         if year:
-            dateGroup.setDateLatestYear(BigInteger(str(year)))
             dateGroup.setDateEarliestSingleYear(BigInteger(str(year)))
+            dateGroup.setDateEarliestSingleEra("urn:cspace:core.collectionspace.org:vocabularies:name(dateera):item:name(ce)'CE'")
+            dateGroup.setDateEarliestSingleCertainty("urn:cspace:core.collectionspace.org:vocabularies:name(datecertainty):item:name(approximate)'Approximate'")
     return dateGroup

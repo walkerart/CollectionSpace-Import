@@ -41,7 +41,7 @@ The table is generated in Postgres like this:
 DROP TABLE if exists cs;
 CREATE TABLE cs (
     hostname varchar(255) NOT NULL,
-    other_id varchar(255) NOT NULL,
+    other_id varchar(512) NOT NULL,
     other_table varchar(255),
     refname text,
     csid text
