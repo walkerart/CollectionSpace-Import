@@ -130,7 +130,8 @@ CREATE TABLE {} (\n""".format(tablename,tablename)
                     sql += u"    {} text,\n".format(tablecol)
                 sql = sql[:-2] # remove trailing comma
                 sql += u"""
-);\n"""
+);
+ALTER TABLE public.{} OWNER TO cnr;\n"""
 #            size = len(col_list)
             
             
@@ -152,7 +153,9 @@ CREATE TABLE {} (\n""".format(tablename,tablename)
                     if full_col_list[i] in val:
                         #sys.stderr.write("{} goes in {}\n".format(full_col_list[i], key))
                         if key not in data_cols:
-                            data_cols[key] = [objectid]
+                            #data_cols[key] = [objectid]
+                            # let's try to use just the accession number here. Can't deal with mixed things.
+                            data_cols[key] = [cols[ACC_COL]]
                             if key == 'wac_object':
                                 wacid=''
                                 if cols[OBJECTID_COL]:

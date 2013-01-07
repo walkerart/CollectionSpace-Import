@@ -21,6 +21,7 @@ BIRTHDATE_COL = 59
 BIRTHPLACE_COL = 60
 DEATHDATE_COL = 61
 DEATHPLACE_COL = 62
+GENDER_COL = 21
 NATIONALITY_COL = 67
 LASTNAME_COL=69
 DEBUG_ARTISTS=False
@@ -44,6 +45,13 @@ splitname_2 = re.compile(r"^([^\s]+(\s+[^\s]+)+)(?<![jJsS]r\.)(,\s)([^\s]+(\s+[^
 lastfirst = re.compile(r"^([^,]+),\s+([^,]+)$")
 firstlast = re.compile(r"^([^\s]+)\s+([^,]+)$")
 
+# special cases regex
+gilbertgeorge = re.compile(r"^Gilbert (&|and) George$")
+cleggguttmann = "Clegg & Guttmann (Michael Clegg and Martin Guttmann) in collaboration with Franz West"
+
+# some year fields have too much data for us
+fixyear = re.compile(r"\d{1,2}\/\d{1,2}\/(\d{4})")
+
 dmeta = fuzzy.DMetaphone()
 
 #establish a connection with db
@@ -58,6 +66,11 @@ except Exception as e:
 
 
 def explode_artists(artist, artists = None):
+    # two explicit special cases
+    if artist == cleggguttmann:
+        return ['Michael Clegg','Martin Guttmann','Franz West']
+    if gilbertgeorge.match(artist):
+        return ['Gilbert Proesch','George Passmore']
     if not artists:
         artists = []
     artist = artist.strip()
@@ -228,7 +241,31 @@ if DEBUG_ARTISTS:
     print explode_artists('Vieira da Silva, Maria Helena')
     print explode_artists('Kennedy Jr., Amos Paul')
     print explode_artists('Luchese Jr., Joseph P.')
+    print explode_artists('Gilbert & George')
+    print explode_artists('Gilbert and George')
     fin = []
+
+def explode_vt_or_slash(col):
+    orig = col
+    if len(col) > 1:
+        return col # already split
+    col = col[0]
+    col = col.split('\x0b')# vertical tab
+    if len(col) > 1:
+        #print "split {} on vt! {}".format(orig,col)
+        return col # already split
+    col = col[0]
+    col = col.split(',')# comma
+    if len(col) > 1:
+        col = map(lambda x: x.strip(), col)
+        print "split {} on ,! {}".format(orig,col)
+        return col # already split
+    col = col[0]
+    col = fixyear.sub(r"\1",col) # this will only mess with years, and we only have to do it before we match slashes below
+    col = col.split('/' )# slash
+    #if len(col) > 1:
+    #    print "split {} on slash! {}".format(orig,col)
+    return col # whatever we've got here is fine, either split or not
     
 for line in fin:
     line = unicode( line, "mac_roman" )
@@ -239,6 +276,10 @@ for line in fin:
         print "OMG {}".format(cols[ARTIST_COL])
     original_artist_string = cols[ARTIST_COL][0]
     cols[ARTIST_COL] = explode_artists(cols[ARTIST_COL][0])
+    #print "{} {} {}\n".format(cols[BIRTHDATE_COL],cols[DEATHDATE_COL],cols[GENDER_COL])
+    cols[GENDER_COL] = explode_vt_or_slash(cols[GENDER_COL])
+    cols[BIRTHDATE_COL] = explode_vt_or_slash(cols[BIRTHDATE_COL])
+    cols[DEATHDATE_COL] = explode_vt_or_slash(cols[DEATHDATE_COL])
     if DEBUG_ARTISTS:
         print "{} ===== {}".format(original_artist_string, ' : '.join(cols[ARTIST_COL]))
     numrows = max(map(lambda x: len(x), cols))
@@ -247,7 +288,7 @@ for line in fin:
         for j in range(len(cols)):
             out.append((cols[j][i] if len(cols[j]) > i else '')+('\n' if (j == (len(cols)-1) and i>0) else ''))
         ulan = map_to_ulan(out,orig_cols)
-        out[-1:] = [out[-1:][0].strip()]
+        out[-1:] = [out[-1:][0].strip()] # .tab file has trailing CR on last field
         out.append(original_artist_string if i == 0 else '')
         out.extend(ulan)
         
