@@ -131,7 +131,7 @@ CREATE TABLE {} (\n""".format(tablename,tablename)
                 sql = sql[:-2] # remove trailing comma
                 sql += u"""
 );
-ALTER TABLE public.{} OWNER TO cnr;\n"""
+ALTER TABLE public.{} OWNER TO cnr;\n""".format(tablename)
 #            size = len(col_list)
             
             
