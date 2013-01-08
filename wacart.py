@@ -17,16 +17,20 @@ ACC_COL = 35
 ID_COL = 38
 TITLE_COL = 41
 ARTIST_COL = 56
+AUTHOR_COL = 57
 BIRTHDATE_COL = 59
-BIRTHPLACE_COL = 60
+BIRTHAUTHOR_COL = 60
 DEATHDATE_COL = 61
-DEATHPLACE_COL = 62
+DEATHAUTHOR_COL = 62
 GENDER_COL = 21
 NATIONALITY_COL = 66
 LASTNAME_COL=69
-DEBUG_ARTISTS=False
+
+DEBUG_ARTISTS=True
 DEBUG_ULAN=True
 PROMPT_ULAN=True
+
+ARTIST = True # are we using the artist? False means author.
 
 tabfile = sys.argv[1]
 fin = open( tabfile, "rU") # codecs open doesn't respect \r newlines
@@ -38,15 +42,19 @@ singlename_2 = re.compile(r"^[^\s]+,?(\s+)([^\s]+\s+[^\s]+)$")
 singlename_3 = re.compile(r"^([^\s]+\s+[^\s]+),?(\s+)[^\s]+$")
 singlename_4 = re.compile(r"^[^\s]+\s+([jJsS]r)\.,?(\s+)([^\s]+\s+[^\s]+)$")
 couple_shortcut_1 = re.compile(r"^([^\s]+),\s+([^\s]+)\sand\s([^\s]+)$")
-splitname_1 = re.compile(r"^([^(]+)(;\s|\sand\s)(.+)$")
+splitname_1 = re.compile(r"^([^(]+)(:\s|;\s|\sand\s)(.+)$")
 splitname_2 = re.compile(r"^([^\s]+(\s+[^\s]+)+)(?<![jJsS]r\.)(,\s)([^\s]+(\s+[^\s]+)+)$")
 
 # first/last regex
 lastfirst = re.compile(r"^([^,]+),\s+([^,]+)$")
 firstlast = re.compile(r"^([^\s]+)\s+([^,]+)$")
 
+# not an artist if it has weird characters in it!
+non_artist = re.compile(r".*[:+;\(\[\/\"].*")
+
 # special cases regex
 gilbertgeorge = re.compile(r"^Gilbert (&|and) George$")
+split_bar = re.compile(r" [|] .+$")
 cleggguttmann = "Clegg & Guttmann (Michael Clegg and Martin Guttmann) in collaboration with Franz West"
 
 # some year fields have too much data for us
@@ -65,10 +73,28 @@ except Exception as e:
     exit()
 
 
+comma_normalize_re = re.compile(r",(\s+)?")
+
 def explode_artists(artist, artists = None):
-    # two explicit special cases
+    if DEBUG_ARTISTS:
+        print "Starting with '{}'".format(artist)
+
+    # normalize commas on first call: always one space after, no more no less
+    artist = comma_normalize_re.sub(", ", artist)
+
+    artist = split_bar.sub('',artist)
+
+    # explicit special cases
+    if artist == "Mieko (Chieko) Shiomi":
+        return ['Chieko Shiomi']
+    if artist == "Ed Ruscha":
+        return ['Edward Ruscha']
     if artist == cleggguttmann:
         return ['Michael Clegg','Martin Guttmann','Franz West']
+    if artist == 'Peterson, Christian A., Anderson, Simon Christian A. Peterson and Simon Anderson':
+        return ['Peterson, Christian A.', 'Simon Anderson']
+    if artist == 'Bengston, Goode, Graham, Moses, Price, Ruscha':
+        return ['Billy Al Bengston','Joe Goode','Robert Graham','Ed Moses','Kenneth Price','Edward Ruscha']
     if gilbertgeorge.match(artist):
         return ['Gilbert Proesch','George Passmore']
     if not artists:
@@ -100,6 +126,8 @@ def explode_artists(artist, artists = None):
     if not artists:
         # something weird (single name, parens, etc)
         artists.append(artist)
+    # remove non-artists: 
+    artists = [artist for artist in artists if not non_artist.match(artist)]
     return artists
 
 firstlast_re = re.compile(r"([^,]+),\s+(.+)")
@@ -117,7 +145,6 @@ def map_to_ulan(data,object_data):
     
     if not name or 'anonymous' in name.lower() or 'unknown' in name.lower():
         return ret # empty row padding another column, skip
-    name = name.replace(',  ',', ') # easy fix: extra space
     
     wac_id = 0
     #return ret # header line or something
@@ -236,17 +263,46 @@ if 'reset_cache' in sys.argv:
 
 if DEBUG_ARTISTS:
     print explode_artists('Clegg & Guttmann (Michael Clegg and Martin Guttmann) in collaboration with Franz West')
+    print "\n\n"
     print explode_artists('Scheier, Edwin and Mary')
+    print "\n\n"
     print explode_artists('Charlip, Remy; Ray Johnson, Robert Rauschenberg, and Vera Williams')
+    print "\n\n"
     print explode_artists('Vieira da Silva, Maria Helena')
+    print "\n\n"
     print explode_artists('Kennedy Jr., Amos Paul')
+    print "\n\n"
     print explode_artists('Luchese Jr., Joseph P.')
+    print "\n\n"
     print explode_artists('Gilbert & George')
+    print "\n\n"
     print explode_artists('Gilbert and George')
-    print explode_artists('Anderson, Graham: Sarah Rara Anderson, Marijke Appelman, Michael G. Bauer, Michelle Blade, Mary Walling Blackburn, Paul Branca, Josh Kit Clayton, Daniel Gustav Cramer, Ken Ehrlich, Barbara Ess, Luke Fishbeck, Marley Freeman, Emilie Halpern, Zach Houston, Steve Kado, Avalon Kalin, Alex Klein, Annegret Kellner, Amy Lam, Miranda Lichtenstein, Graham Parker, John Peña, Jon Pestoni, Suzie Silver, John Sisley, Santos Vasquez')
+    print "\n\n"
+    print explode_artists('LeWitt,Sol')
+    print "\n\n"
+    print explode_artists('Anderson, Graham: Sarah Rara Anderson, Marijke Appelman, Michael G. Bauer, Michelle Blade')
+    print "\n\n"
     print explode_artists('Peterson, Christian A., Anderson, Simon Christian A. Peterson and Simon Anderson')
+    print "\n\n"
     print explode_artists('Ball, Lillian, Jones, Kristen, + 64 other artists')
+    print "\n\n"
+    print explode_artists('Bengston, Goode, Graham, Moses, Price, Ruscha')
+    print "\n\n"
+    print explode_artists('Lawler, Louise: Sherrie Levine, Richard Prince, Cindy Sherman, Laurie Simmons, James Welling')
+    print "\n\n"
     print explode_artists('Nordfeldt, Bror Julius Olsson (B.J.O.)')
+    print "\n\n"
+    print explode_artists('Arakawa (and secondary: Madeline Gins)')
+    print "\n\n"
+    print explode_artists('George Brecht, George Maciunas, Dick Higgins, Joe Jones, Takako Saito, Alison Knowles, Takehisa Kosugi, Shigeko Kubota, György Ligeti, Jackson Mac Low, Ben Patterson, Tomas Schmit, Mieko (Chieko) Shiomi, Ben Vautier, Robert Watts, Emmett Williams, La Monte Young, Nam June Paik, Sohei Hashimoto, Brion Gysin | Brecht, George; Maciunas, George; Higgins, Dick; Jones, Joe; Saito, Takako; Knowles, Alison; Kosugi, Takehisa; Kubota, Shigeko; Ligeti, György; Mac Low, Jackson; Patterson, Ben; Schmit, Tomas; Shiomi, Mieko (Chieko); Vautier, Ben; Watts, Robert; Williams, Emmett; Young, La Monte; Paik, Nam June; Hashimoto, Sohei; Gysin, Brion')
+    print "\n\n"
+    print explode_artists('Larry [??] Rivers, Test Name')
+    print "\n\n"
+    print explode_artists('Ed Ruscha, Test Name')
+    print "\n\n"
+
+
+
 
     
     fin = []
@@ -276,7 +332,11 @@ def explode_vt_or_slash(col):
 for line in fin:
     line = unicode( line, "mac_roman" )
     cols = map(lambda x: x.split('\x1d'), line.split('\t'))
-    print cols
+    i = 0
+    for col in cols:
+        print "{} {}".format(i,col)
+        i+=1
+    fin = []
     orig_cols = cols
     if len(cols[ARTIST_COL]) > 1:
         # this never fires. good news: we don't use that "group separator" in the artist field
@@ -332,3 +392,77 @@ for line in fin:
         fout.write('\t'.join(out))
 
 print "Hit rate: {}/{} = {}".format(ulan_hit,(ulan_hit+ulan_miss),(ulan_hit/(ulan_hit+ulan_miss)))
+
+
+#0 [u'Condition']
+#1 [u'Condition Date']
+#2 [u'IAIA Subject']
+#3 [u'Running Time']
+#4 [u'Width']
+#5 [u'Depth']
+#6 [u'Height']
+#7 [u'Weight']
+#8 [u'DimDescription']
+#9 [u'Dimensions']
+#10 [u'Edition']
+#11 [u'Cast No.']
+#12 [u'Signature']
+#13 [u'Workshop Number']
+#14 [u'Signed/location']
+#15 [u'Printer\xf8s Marks']
+#16 [u'Foundry Marking']
+#17 [u'Inscription/location']
+#18 [u'Medium']
+#19 [u'Support']
+#20 [u'Description ']
+#21 [u'Sex']
+#22 [u'Genre']
+#23 [u'IAIA Styly']
+#24 [u'Unique frame']
+#25 [u'Frame']
+#26 [u'Number of Pages']
+#27 [u'Vol./No.']
+#28 [u'Binding']
+#29 [u'Slipcase']
+#30 [u'Master']
+#31 [u'Submaster']
+#32 [u'Portfolio']
+#33 [u'Media']
+#34 [u'Related material location']
+#35 [u'Accession Number']
+#36 [u'Old Accession No.']
+#37 [u'LC#']
+#38 [u'Object ID']
+#39 [u'Classification']
+#40 [u'Status']
+#41 [u'Title']
+#42 [u'Credit Line']
+#43 [u'Initial Value']
+#44 [u'Initial Price']
+#45 [u'Current Value']
+#46 [u'Valuation Date']
+#47 [u'Valuation source']
+#48 [u'Source']
+#49 [u'Date']
+#50 [u'Ct. Raisonne Ref. #']
+#51 [u'Fabricator']
+#52 [u'Foundry']
+#53 [u'Printer']
+#54 [u'Publisher']
+#55 [u'Editor']
+#56 [u'Artist']
+#57 [u'Author']
+#58 [u'Author birth year']
+#59 [u'Born']
+#60 [u'Author Death year']
+#61 [u'Died']
+#62 [u'Author gender']
+#63 [u'MN Artist']
+#64 [u'Ethnicity']
+#65 [u'Author Nationality']
+#66 [u'Nationality']
+#67 [u'Author place of birth']
+#68 [u'Place of Birth']
+#69 [u'Last Name']
+#70 [u'Reproduction Rights held by:\n']
+
