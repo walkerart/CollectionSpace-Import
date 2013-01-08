@@ -22,7 +22,7 @@ BIRTHPLACE_COL = 60
 DEATHDATE_COL = 61
 DEATHPLACE_COL = 62
 GENDER_COL = 21
-NATIONALITY_COL = 67
+NATIONALITY_COL = 66
 LASTNAME_COL=69
 DEBUG_ARTISTS=False
 DEBUG_ULAN=True
@@ -115,7 +115,7 @@ def map_to_ulan(data,object_data):
     # ULAN ID, preferred label, nationality, role, birth date & death date
     ret = ['','','','','','']
     
-    if not name or 'anonymous' in name.lower() or 'uknown' in name.lower():
+    if not name or 'anonymous' in name.lower() or 'unknown' in name.lower():
         return ret # empty row padding another column, skip
     name = name.replace(',  ',', ') # easy fix: extra space
     
@@ -243,6 +243,12 @@ if DEBUG_ARTISTS:
     print explode_artists('Luchese Jr., Joseph P.')
     print explode_artists('Gilbert & George')
     print explode_artists('Gilbert and George')
+    print explode_artists('Anderson, Graham: Sarah Rara Anderson, Marijke Appelman, Michael G. Bauer, Michelle Blade, Mary Walling Blackburn, Paul Branca, Josh Kit Clayton, Daniel Gustav Cramer, Ken Ehrlich, Barbara Ess, Luke Fishbeck, Marley Freeman, Emilie Halpern, Zach Houston, Steve Kado, Avalon Kalin, Alex Klein, Annegret Kellner, Amy Lam, Miranda Lichtenstein, Graham Parker, John Peña, Jon Pestoni, Suzie Silver, John Sisley, Santos Vasquez')
+    print explode_artists('Peterson, Christian A., Anderson, Simon Christian A. Peterson and Simon Anderson')
+    print explode_artists('Ball, Lillian, Jones, Kristen, + 64 other artists')
+    print explode_artists('Nordfeldt, Bror Julius Olsson (B.J.O.)')
+
+    
     fin = []
 
 def explode_vt_or_slash(col):
@@ -258,7 +264,7 @@ def explode_vt_or_slash(col):
     col = col.split(',')# comma
     if len(col) > 1:
         col = map(lambda x: x.strip(), col)
-        print "split {} on ,! {}".format(orig,col)
+        #print "split {} on ,! {}".format(orig,col)
         return col # already split
     col = col[0]
     col = fixyear.sub(r"\1",col) # this will only mess with years, and we only have to do it before we match slashes below
@@ -270,16 +276,18 @@ def explode_vt_or_slash(col):
 for line in fin:
     line = unicode( line, "mac_roman" )
     cols = map(lambda x: x.split('\x1d'), line.split('\t'))
+    print cols
     orig_cols = cols
     if len(cols[ARTIST_COL]) > 1:
         # this never fires. good news: we don't use that "group separator" in the artist field
         print "OMG {}".format(cols[ARTIST_COL])
     original_artist_string = cols[ARTIST_COL][0]
     cols[ARTIST_COL] = explode_artists(cols[ARTIST_COL][0])
-    #print "{} {} {}\n".format(cols[BIRTHDATE_COL],cols[DEATHDATE_COL],cols[GENDER_COL])
+    #print "{} {} {}\n".format(cols[BIRTHDATE_COL],cols[DEATHDATE_COL],cols[NATIONALITY_COL])
     cols[GENDER_COL] = explode_vt_or_slash(cols[GENDER_COL])
     cols[BIRTHDATE_COL] = explode_vt_or_slash(cols[BIRTHDATE_COL])
     cols[DEATHDATE_COL] = explode_vt_or_slash(cols[DEATHDATE_COL])
+    cols[NATIONALITY_COL] = explode_vt_or_slash(cols[NATIONALITY_COL])
     if DEBUG_ARTISTS:
         print "{} ===== {}".format(original_artist_string, ' : '.join(cols[ARTIST_COL]))
     numrows = max(map(lambda x: len(x), cols))

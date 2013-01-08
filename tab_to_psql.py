@@ -139,13 +139,23 @@ ALTER TABLE public.{} OWNER TO cnr;\n""".format(tablename)
             # populate the hash to write out at the end
             if cols[OBJECTID_COL] or cols[ACC_COL] or cols[TITLE_COL]:
                 objectid = cols[OBJECTID_COL]
-                if not objectid:
-                    # use the accession number
-                    objectid = cols[ACC_COL]
+                accno = cols[ACC_COL] # store outside the loop
+                if not objectid and cols[ACC_COL]:
+                    #sys.stderr.write("=========== WTF {}\n".format(accno))
+                    # recover using accession number (remove trailing .x in .1-.15)
+                    slim_accno = cols[ACC_COL][0:cols[ACC_COL].find('-')]+'-%' if '-' in cols[ACC_COL] else cols[ACC_COL]
+                    if slim_accno == cols[ACC_COL] and cols[ACC_COL].count('.')>1:
+                        slim_accno = cols[ACC_COL][0:cols[ACC_COL].rfind('.')]+'.%'
+                    #sys.stderr.write("=========== WTF {}\n".format(slim_accno))
+                    cur.execute("select cms_id from object where accession_number like %s",(slim_accno,))
+                    row = cur.fetchone()
+                    if row and row['cms_id']:
+                        objectid = str(row['cms_id'])
+                    #sys.stderr.write("=========== WTF {}\n".format(objectid))
                 if not objectid:
                     # um. What the heck kind of object IS this?               
                     objectid = cols[TITLE_COL].strip().replace(' ','')
-                    sys.stderr.write("=========== WTF{}\n".format(objectid))
+                    sys.stderr.write("=========== WTF {}\n".format(accno))
             #sys.stderr.write("{}\n".format(objectid))
             data_cols = {}
             for i in range(len(cols)):
@@ -153,9 +163,7 @@ ALTER TABLE public.{} OWNER TO cnr;\n""".format(tablename)
                     if full_col_list[i] in val:
                         #sys.stderr.write("{} goes in {}\n".format(full_col_list[i], key))
                         if key not in data_cols:
-                            #data_cols[key] = [objectid]
-                            # let's try to use just the accession number here. Can't deal with mixed things.
-                            data_cols[key] = [cols[ACC_COL]]
+                            data_cols[key] = [objectid]
                             if key == 'wac_object':
                                 wacid=''
                                 if cols[OBJECTID_COL]:
@@ -168,10 +176,11 @@ ALTER TABLE public.{} OWNER TO cnr;\n""".format(tablename)
                                 wacid=''
                                 if cols[LASTNAME_COL]:
                                     #sys.stderr.write("{} {}\n".format(cols[FIRSTNAME_COL],cols[LASTNAME_COL]))
-                                    cur.execute("select agent_id from names where upper(first_name) like upper(%s) and upper(index_name) like (%s)",(cols[FIRSTNAME_COL],cols[LASTNAME_COL]))
+                                    #cur.execute("select agent_id from names where upper(first_name) like upper(%s) and upper(index_name) like (%s)",(cols[FIRSTNAME_COL],cols[LASTNAME_COL]))
+                                    cur.execute("select id from object where cms_id=%s",(objectid,))
                                     row = cur.fetchone()
-                                    if row and row['agent_id']:
-                                        wacid = str(row['agent_id'])
+                                    if row and row['id']:
+                                        wacid = str(row['id'])
                                 data_cols[key].append(wacid)
                         data_cols[key].append(cols[i])
             
