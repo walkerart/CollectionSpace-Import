@@ -26,11 +26,10 @@ GENDER_COL = 21
 NATIONALITY_COL = 66
 LASTNAME_COL=69
 
-DEBUG_ARTISTS=True
+DEBUG_ARTISTS=False
 DEBUG_ULAN=True
 PROMPT_ULAN=True
 
-ARTIST = True # are we using the artist? False means author.
 
 tabfile = sys.argv[1]
 fin = open( tabfile, "rU") # codecs open doesn't respect \r newlines
@@ -50,7 +49,7 @@ lastfirst = re.compile(r"^([^,]+),\s+([^,]+)$")
 firstlast = re.compile(r"^([^\s]+)\s+([^,]+)$")
 
 # not an artist if it has weird characters in it!
-non_artist = re.compile(r".*[:+;\(\[\/\"].*")
+non_artist = re.compile(r".*([:+;\(\[\/\"]|Various).*")
 
 # special cases regex
 gilbertgeorge = re.compile(r"^Gilbert (&|and) George$")
@@ -298,6 +297,10 @@ if DEBUG_ARTISTS:
     print "\n\n"
     print explode_artists('Larry [??] Rivers, Test Name')
     print "\n\n"
+    print explode_artists('Various, Test Name')
+    print "\n\n"
+    print explode_artists('Various Artists, Test Name')
+    print "\n\n"
     print explode_artists('Ed Ruscha, Test Name')
     print "\n\n"
 
@@ -332,11 +335,6 @@ def explode_vt_or_slash(col):
 for line in fin:
     line = unicode( line, "mac_roman" )
     cols = map(lambda x: x.split('\x1d'), line.split('\t'))
-    i = 0
-    for col in cols:
-        print "{} {}".format(i,col)
-        i+=1
-    fin = []
     orig_cols = cols
     if len(cols[ARTIST_COL]) > 1:
         # this never fires. good news: we don't use that "group separator" in the artist field
