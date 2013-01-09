@@ -41,15 +41,16 @@ singlename_2 = re.compile(r"^[^\s]+,?(\s+)([^\s]+\s+[^\s]+)$")
 singlename_3 = re.compile(r"^([^\s]+\s+[^\s]+),?(\s+)[^\s]+$")
 singlename_4 = re.compile(r"^[^\s]+\s+([jJsS]r)\.,?(\s+)([^\s]+\s+[^\s]+)$")
 couple_shortcut_1 = re.compile(r"^([^\s]+),\s+([^\s]+)\sand\s([^\s]+)$")
-splitname_1 = re.compile(r"^([^(]+)(:\s|;\s|\sand\s)(.+)$")
+splitname_1 = re.compile(r"^([^(]+)(;\s|\sand\s)(.+)$")
 splitname_2 = re.compile(r"^([^\s]+(\s+[^\s]+)+)(?<![jJsS]r\.)(,\s)([^\s]+(\s+[^\s]+)+)$")
+splitname_3 = re.compile(r"^([^(]+)(:\s)(.+)$") # pick up : case -- must have comma before and after
 
 # first/last regex
 lastfirst = re.compile(r"^([^,]+),\s+([^,]+)$")
 firstlast = re.compile(r"^([^\s]+)\s+([^,]+)$")
 
 # not an artist if it has weird characters in it!
-non_artist = re.compile(r".*([:+;\(\[\/\"]|Various).*")
+non_artist = re.compile(r".*([:+;\(\[\/\"]|Various|Unknown).*", re.IGNORECASE)
 
 # special cases regex
 gilbertgeorge = re.compile(r"^Gilbert (&|and) George$")
@@ -75,6 +76,7 @@ except Exception as e:
 comma_normalize_re = re.compile(r",(\s+)?")
 
 def explode_artists(artist, artists = None):
+    artist = artist.strip() # trailing spaces!!
     if DEBUG_ARTISTS:
         print "Starting with '{}'".format(artist)
 
@@ -84,7 +86,7 @@ def explode_artists(artist, artists = None):
     artist = split_bar.sub('',artist)
 
     # explicit special cases
-    if artist == "Mieko (Chieko) Shiomi":
+    if artist == "Mieko (Chieko) Shiomi" or artist == "Shiomi, Mieko (Chieko)":
         return ['Chieko Shiomi']
     if artist == "Ed Ruscha":
         return ['Edward Ruscha']
@@ -117,6 +119,12 @@ def explode_artists(artist, artists = None):
         if m:
             g1 = m.group(1)
             g2 = m.group(4)
+        else:
+            m = splitname_3.match(artist)
+            # this is the : split -- double check for commas
+            if m and ',' in m.group(1) and ',' in m.group(3):
+                g1 = m.group(1)
+                g2 = m.group(3)
     if g1 and g2:
         if DEBUG_ARTISTS:
             print "this is a splitname: {}: {} ||||| {}".format(artist, g1, g2)
@@ -302,6 +310,10 @@ if DEBUG_ARTISTS:
     print explode_artists('Various Artists, Test Name')
     print "\n\n"
     print explode_artists('Ed Ruscha, Test Name')
+    print "\n\n"
+    print explode_artists('Multiples Aus Der Sammlung Feelisch: Kunst- Und Musseumsverein Wuppertal')
+    print "\n\n"
+    print explode_artists('Hairy Who: Artists Collective')
     print "\n\n"
 
 
