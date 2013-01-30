@@ -54,6 +54,7 @@ non_artist = re.compile(r".*([:+;\(\[\/\"]|Various|Unknown).*", re.IGNORECASE)
 
 # special cases regex
 gilbertgeorge = re.compile(r"^Gilbert (&|and) George$")
+beuysplusone = re.compile(r"^Joseph Beuys,\s[^\s]+$")
 split_bar = re.compile(r" [|] .+$")
 cleggguttmann = "Clegg & Guttmann (Michael Clegg and Martin Guttmann) in collaboration with Franz West"
 
@@ -98,6 +99,8 @@ def explode_artists(artist, artists = None):
         return ['Billy Al Bengston','Joe Goode','Robert Graham','Ed Moses','Kenneth Price','Edward Ruscha']
     if gilbertgeorge.match(artist):
         return ['Gilbert Proesch','George Passmore']
+    if beuysplusone.match(artist):
+        return ['Joseph Beuys']
     if not artists:
         artists = []
     artist = artist.strip()
@@ -315,9 +318,10 @@ if DEBUG_ARTISTS:
     print "\n\n"
     print explode_artists('Hairy Who: Artists Collective')
     print "\n\n"
-
-
-
+    print explode_artists('Joseph Beuys, Zoa')
+    print "\n\n"
+    print explode_artists('Joseph Beuys, Test Name')
+    print "\n\n"
 
     
     fin = []
